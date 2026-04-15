@@ -30,6 +30,10 @@ function App() {
         // Only fetch if not already fetching for this user
         if (fetchingProfileFor.current !== userId) {
           await fetchProfile(userId);
+        } else {
+          // If already fetching, we just need to ensure loading eventually closes.
+          // The other fetch will handle it, but for safety:
+          setTimeout(() => setLoading(false), 500);
         }
       } else {
         setUser(null);
@@ -116,8 +120,7 @@ function App() {
       setProfile(null);
     } finally {
       fetchingProfileFor.current = null;
-      // Slight delay for state propagation
-      setTimeout(() => setLoading(false), 300);
+      setLoading(false);
     }
   };
 
