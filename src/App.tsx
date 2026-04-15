@@ -58,9 +58,10 @@ function App() {
         await handleAuthStateChange(session);
       } catch (err) {
         console.error("Critical Auth Error:", err);
-        setLoading(false);
       } finally {
         clearTimeout(authTimeout);
+        // Ensure we always close the initial loading "curtain"
+        setLoading(false);
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -73,6 +74,10 @@ function App() {
           setLoading(false);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           await handleAuthStateChange(session);
+          setLoading(false); // Safety lift
+        } else if (event === 'INITIAL_SESSION') {
+          await handleAuthStateChange(session);
+          setLoading(false); // Safety lift
         } else {
           await handleAuthStateChange(session);
         }

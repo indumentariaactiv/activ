@@ -14,7 +14,6 @@ const AppLayout = () => {
       const store = useAppStore.getState();
       store.setUser(null);
       store.setProfile(null);
-      store.setLoading(true); 
       
       // 2. Sign out from Supabase (async)
       await supabase.auth.signOut().catch(console.error);
