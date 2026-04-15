@@ -107,7 +107,7 @@ const NewOrder = () => {
           .insert({
             client_id: authUser.id,
             name: orderName,
-            status: 'draft'
+            status: 'draft' // Standard draft status
           })
           .select()
           .single();
@@ -163,16 +163,8 @@ const NewOrder = () => {
         }
       }
 
-      // 4. Update Order to Confirmed
-      const { error: finalError } = await supabase.from('orders').update({
-        status: 'confirmed',
-        confirmed_at: new Date().toISOString()
-      }).eq('id', orderData.id);
-
-      if (finalError) throw finalError;
-
-      // Success
-      navigate('/cliente/dashboard');
+      // 4. Success -> Redirect to the high-fidelity summary page
+      navigate(`/cliente/pedido/${orderData.id}`);
     } catch (error: any) {
       console.error("Error detallado al guardar:", error);
       alert(`Error al guardar: ${error.message || "Verifica la consola para más detalles."}`);
@@ -192,12 +184,11 @@ const NewOrder = () => {
       {/* Breadcrumb & Header */}
       <div className="mb-10 text-center">
         <p className="font-headline text-[var(--color-primary)] font-extrabold tracking-tighter uppercase text-sm mb-2">
-          Paso {step} de 3
+          Paso {step} de 2
         </p>
         <h1 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-on-surface)]">
           {step === 1 && 'Información General'}
           {step === 2 && 'Agregar Prendas'}
-          {step === 3 && 'Resumen Final'}
         </h1>
       </div>
 
@@ -302,8 +293,8 @@ const NewOrder = () => {
                 
                 <div className="flex justify-between mt-8 pt-6 border-t border-[var(--color-outline-variant)]/20">
                   <button onClick={handlePrev} className="btn btn-tertiary">Atrás</button>
-                  <button onClick={handleNext} disabled={orderItems.length === 0} className="btn btn-primary">
-                    Resumen Final
+                  <button onClick={handleSubmitOrder} disabled={orderItems.length === 0 || loading} className="btn btn-primary">
+                    {loading ? 'Guardando...' : 'Ver Resumen Final'}
                     <span className="material-symbols-outlined flex">arrow_forward</span>
                   </button>
                 </div>
@@ -312,129 +303,6 @@ const NewOrder = () => {
           </div>
         )}
 
-        {step === 3 && (
-          <div className="flex flex-col gap-6">
-            <div className="bg-[var(--color-surface-container-high)] p-4 rounded-lg text-center mb-6">
-              <p className="font-bold text-[var(--color-tertiary)] flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined">warning</span>
-                Revisión Final
-              </p>
-              <p className="text-sm mt-1">Este pedido se va a producir exactamente como está cargado. Revisá bien las cantidades, talles y diseños antes de confirmar.</p>
-            </div>
-
-            <div className="flex justify-between items-center border-b border-[var(--color-outline-variant)]/20 pb-4 mb-4">
-              <h3 className="font-bold text-xl">Pedido: {orderName}</h3>
-              <span className="status-chip ready">Listo para Confirmar</span>
-            </div>
-
-            <div className="space-y-4">
-              {orderItems.map((item) => (
-                <div key={item.id} className="card p-0 overflow-hidden border border-[var(--color-outline-variant)]/20 shadow-none">
-                  <div className="flex flex-col md:flex-row">
-                    {/* Image Section - STANDARDIZED WITH ADMIN VIEW */}
-                    <div className="w-full md:w-[150px] bg-[var(--color-surface-container-low)] flex flex-col items-center justify-center p-4 border-b md:border-b-0 md:border-r border-[var(--color-outline-variant)]/20">
-                      {(item.custom_design_url || item.design_image_url) ? (
-                        <>
-                          <img 
-                            src={item.custom_design_url || item.design_image_url} 
-                            alt="Diseño Seleccionado" 
-                            className="w-24 aspect-[4/5] object-contain rounded-xl shadow-lg border border-white/50 bg-white" 
-                          />
-                          <a href={item.custom_design_url || item.design_image_url} target="_blank" rel="noreferrer" className="mt-3 text-[10px] text-[var(--color-primary)] font-black uppercase tracking-widest hover:underline flex items-center gap-1">
-                            Ver Diseño <span className="material-symbols-outlined text-[0.8rem]">open_in_new</span>
-                          </a>
-                        </>
-                      ) : (
-                        <div className="w-24 aspect-[4/5] bg-[var(--color-surface-container-high)] rounded-xl flex flex-col items-center justify-center text-[var(--color-on-surface-variant)] border-2 border-dashed border-[var(--color-outline-variant)]/20 px-2 text-center">
-                          <span className="material-symbols-outlined text-2xl mb-1">style</span>
-                          <span className="text-[8px] font-black uppercase tracking-tighter">Sin Diseño Seleccionado</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Info Section */}
-                    <div className="flex-1 p-6">
-                      <div className="mb-6">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h4 className="font-headline text-2xl font-black text-[var(--color-on-surface)]">{item.garment_type_name}</h4>
-                          <span className="text-sm font-bold text-[var(--color-on-surface-variant)]">—</span>
-                          <span className="text-sm font-black uppercase tracking-widest text-[var(--color-primary)]">{item.category}</span>
-                          {item.sleeve_type && (
-                            <>
-                              <span className="text-sm font-bold text-[var(--color-on-surface-variant)]">—</span>
-                              <span className="text-sm font-bold text-[var(--color-on-surface-variant)]">{item.sleeve_type}</span>
-                            </>
-                          )}
-                        </div>
-                        <p className="text-xs text-[var(--color-on-surface-variant)] font-medium">Configuración técnica seleccionada para esta prenda.</p>
-                      </div>
-
-                      <div className="bg-[var(--color-surface-container-lowest)] rounded-2xl border border-[var(--color-outline-variant)]/10 overflow-hidden">
-                        {item.has_personalization ? (
-                           <div className="p-4">
-                             <div className="flex items-center justify-between mb-3 border-b border-[var(--color-outline-variant)]/10 pb-2">
-                               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)]">Detalle Individual</p>
-                               <span className="text-xs font-black text-[var(--color-primary)]">{item.persons.length} UNI</span>
-                             </div>
-                             <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
-                               {item.persons.map((p, pIdx) => (
-                                 <div key={pIdx} className="bg-[var(--color-surface-container-high)] px-3 py-1.5 rounded-lg text-xs leading-none flex items-center gap-2 border border-[var(--color-outline-variant)]/5">
-                                   <span className="font-headline font-black text-[var(--color-primary)]">{p.size}</span>
-                                   <span className="font-bold">{p.name}</span>
-                                   {p.number && <span className="opacity-50">#{p.number}</span>}
-                                   {p.role && <span className="bg-[var(--color-primary-container)] text-[var(--color-primary)] text-[8px] font-black px-1.5 py-0.5 rounded uppercase">{p.role}</span>}
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                        ) : (
-                           <div className="p-4">
-                             <div className="flex items-center justify-between mb-3 border-b border-[var(--color-outline-variant)]/10 pb-2">
-                               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)]">Cantidades por Talle</p>
-                               <span className="text-xs font-black text-[var(--color-primary)]">{item.sizes.reduce((a,c)=>a+c.quantity, 0)} UNI</span>
-                             </div>
-                             <div className="flex flex-wrap gap-3">
-                               {item.sizes.filter(s => s.quantity > 0).map((s, sIdx) => (
-                                 <div key={sIdx} className="bg-[var(--color-surface-container-highest)] px-4 py-2 rounded-xl flex flex-col items-center min-w-[50px] border border-[var(--color-outline-variant)]/10 shadow-sm">
-                                   <span className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest mb-1">{s.size}</span>
-                                   <span className="text-lg font-headline font-black text-[var(--color-primary)]">{s.quantity}</span>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                        )}
-                      </div>
-
-                      {item.observations && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-outline-variant)]/10">
-                           <p className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-[0.2em] mb-1">Observaciones / Pedido Especial</p>
-                           <p className="text-[11px] font-headline font-semibold text-[var(--color-on-surface)] leading-relaxed">{item.observations}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-between mt-8">
-              <button onClick={handlePrev} disabled={loading} className="btn btn-tertiary">Volver a Prendas</button>
-              <button 
-                onClick={handleSubmitOrder} 
-                disabled={loading}
-                className="btn btn-primary" 
-                style={{ background: 'linear-gradient(135deg, #00c06a, #00a05a)' }}
-              >
-                {loading ? 'Confirmando...' : (
-                  <>
-                    <span className="material-symbols-outlined text-white">check_circle</span>
-                    Confirmar Pedido
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

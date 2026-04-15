@@ -223,3 +223,13 @@ html, body {
 .p-8 { padding: 2rem; }
 .text-center { text-align: center; }
 .text-right { text-align: right; }
+
+@keyframes pulse-received {
+  0% { box-shadow: 0 0 0 0 rgba(0, 89, 187, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 89, 187, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 89, 187, 0); }
+}
+
+.animate-pulse-received {
+  animation: pulse-received 2s infinite;
+}

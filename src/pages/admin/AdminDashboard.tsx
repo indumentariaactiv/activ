@@ -126,9 +126,9 @@ const AdminDashboard = () => {
                       {new Date(o.created_at).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusChipClass(o.status)}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-50"></span>
-                        {getStatusLabel(o.status)}
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusChipClass(o.status)} ${o.status === 'confirmed' ? 'animate-pulse-received !bg-blue-600 !text-white !border-transparent' : ''}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-50 ${o.status === 'confirmed' ? 'hidden' : ''}`}></span>
+                        {o.status === 'confirmed' ? 'NUEVO PEDIDO' : getStatusLabel(o.status)}
                       </span>
                     </td>
                     <td className="p-4 text-right">

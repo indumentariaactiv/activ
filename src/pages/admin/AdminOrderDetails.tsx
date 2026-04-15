@@ -675,19 +675,26 @@ const AdminOrderDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-outline-variant)]/10">
-                      {item.order_item_persons.map((p: any, pIdx: number) => (
-                        <tr key={pIdx} className="hover:bg-[var(--color-primary-container)]/5 transition-colors">
-                          <td className="p-3 font-headline font-black text-xl text-[var(--color-primary)] bg-[var(--color-surface-container-lowest)] border-r border-[var(--color-outline-variant)]/10 w-20 text-center">
-                            {p.person_number || '—'}
-                          </td>
-                          <td className="p-3 font-bold text-sm w-24 text-center border-r border-[var(--color-outline-variant)]/10">
-                            <span className="bg-[var(--color-surface-container-high)] px-3 py-1 rounded-full">{p.size}</span>
-                          </td>
-                          <td className="p-3 font-headline font-extrabold text-lg uppercase tracking-tight text-[var(--color-on-surface)]">
-                            {p.person_name}
-                          </td>
-                        </tr>
-                      ))}
+                      {item.order_item_persons.map((p: any, pIdx: number) => {
+                        const isShorts = item.garment_type_name?.toLowerCase().includes('pantalón') || item.garment_type_name?.toLowerCase().includes('short');
+                        return (
+                          <tr key={pIdx} className="hover:bg-[var(--color-primary-container)]/5 transition-colors">
+                            <td className="p-3 font-headline font-black text-xl text-[var(--color-primary)] bg-[var(--color-surface-container-lowest)] border-r border-[var(--color-outline-variant)]/10 w-20 text-center">
+                              {p.person_number || '—'}
+                            </td>
+                            <td className="p-3 font-bold text-sm w-24 text-center border-r border-[var(--color-outline-variant)]/10">
+                              <span className="bg-[var(--color-surface-container-high)] px-3 py-1 rounded-full">{p.size}</span>
+                            </td>
+                            <td className="p-3 font-headline font-extrabold text-lg uppercase tracking-tight text-[var(--color-on-surface)]">
+                              {isShorts ? (
+                                <span className="text-[10px] text-[var(--color-on-surface-variant)]/30 italic font-black uppercase tracking-widest">Sin Nombre (Pantalón)</span>
+                              ) : (
+                                p.person_name || '—'
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

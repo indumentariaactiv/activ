@@ -80,38 +80,44 @@ const ClientOrderDetails = () => {
   
   if (!order) return null;
 
-  const isEditable = order.status === 'pending';
+  const isEditable = order.status === 'draft';
 
   return (
     <div className="max-w-5xl mx-auto pb-24 px-4 animate-in fade-in duration-500">
       {/* Header Info */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
+      <div className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-6 bg-white p-8 rounded-[32px] border border-[var(--color-outline-variant)]/10 shadow-sm relative overflow-hidden">
+        {/* Subtle background accent */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary)] opacity-[0.03] rounded-bl-full -mr-16 -mt-16"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)]">Revisión Técnica de Pedido</span>
             <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-              order.status === 'pending' ? 'bg-orange-100 text-orange-700' : 
+              order.status === 'draft' ? 'bg-orange-100 text-orange-700' : 
               order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 
               'bg-green-100 text-green-700'
             }`}>
-              {order.status === 'pending' ? 'Borrador / Pendiente' : order.status === 'confirmed' ? 'Enviado / Confirmado' : 'En Producción'}
+              {order.status === 'draft' ? 'Borrador / Pendiente' : order.status === 'confirmed' ? 'Enviado / Confirmado' : 'En Producción'}
             </span>
           </div>
           <h1 className="font-headline text-4xl font-extrabold tracking-tight leading-none text-[var(--color-on-surface)] uppercase">{order.name}</h1>
-          <p className="text-[var(--color-on-surface-variant)] text-sm mt-2 font-medium">Iniciado el {new Date(order.created_at).toLocaleDateString()}</p>
+          <p className="text-[var(--color-on-surface-variant)] text-sm mt-3 font-medium">Iniciado el {new Date(order.created_at).toLocaleDateString()}</p>
         </div>
-        
-        <div className="flex gap-3">
-          <Link to="/cliente/dashboard" className="btn btn-secondary text-sm">
-            <span className="material-symbols-outlined text-md">arrow_back</span>
-            Dashboard
-          </Link>
-          {isEditable && (
-            <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-              <span className="material-symbols-outlined text-md">edit</span>
-              Seguir Editando
+
+        <div className="flex flex-col items-end gap-4 relative z-10">
+          <img src="/src/assets/logo.png" alt="Company Logo" className="h-10 w-auto opacity-80" />
+          <div className="flex gap-3">
+            <Link to="/cliente/dashboard" className="btn btn-secondary text-xs h-10">
+              <span className="material-symbols-outlined text-[1.1rem]">arrow_back</span>
+              Dashboard
             </Link>
-          )}
+            {isEditable && (
+              <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200 h-10 text-xs">
+                <span className="material-symbols-outlined text-[1.1rem]">edit</span>
+                Seguir Editando
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -244,7 +250,7 @@ const ClientOrderDetails = () => {
              </div>
              
              <div className="flex flex-col sm:flex-row gap-4 w-full">
-               <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-secondary flex-1 py-4 rounded-2xl font-black text-md uppercase">
+               <Link to={`/cliente/pedido/${order.id}/editar`} className="btn bg-[var(--color-surface-container-high)] px-8 py-4 rounded-2xl font-black text-sm uppercase">
                  <span className="material-symbols-outlined">edit</span>
                  Volver a Editar
                </Link>
