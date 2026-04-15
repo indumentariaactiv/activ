@@ -1,0 +1,12 @@
+Gmail
+indumentaria.activ
+Nicolas2026
+
+GIT
+Gmail con Remeras.2026
+repo activ
+
+Supabase con cuenta de GIT
+proyecto indumentariaactiv clave de base de datos Remeras.2026
+
+Vercel con Gmail ya conectado al repo activ de Git
