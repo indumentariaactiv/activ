@@ -62,10 +62,13 @@ function App() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log("Auth Event:", event);
         if (event === 'SIGNED_OUT') {
+          console.log("Auth - Cleaning up session states...");
           setUser(null);
           setProfile(null);
           fetchingProfileFor.current = null;
           setLoading(false);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          await handleAuthStateChange(session);
         } else {
           await handleAuthStateChange(session);
         }

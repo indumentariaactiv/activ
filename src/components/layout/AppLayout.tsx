@@ -1,32 +1,33 @@
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import logo from '../../assets/logo.png';
 
 const AppLayout = () => {
   const { profile } = useAppStore();
-  const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = async () => {
     try {
-      console.log("Logout - Initiating clean sign out...");
-      // Clear global state first for instant UI feedback
+      console.log("Logout - Initiating hard sign out...");
+      // 1. Clear store immediately
       const store = useAppStore.getState();
-      store.setLoading(true); // Show a brief loading while signing out
       store.setUser(null);
       store.setProfile(null);
+      store.setLoading(true); 
       
-      // Attempt to sign out from server, but don't block UI
+      // 2. Sign out from Supabase (async)
       await supabase.auth.signOut().catch(console.error);
       
-      // Ensure state is absolutely clean
-      store.setLoading(false);
-      window.location.href = '/login';
+      // 3. Clear storage to prevent sticky sessions
+      localStorage.clear(); 
+      sessionStorage.clear();
+      
+      // 4. Force a hard refresh/replace to the login page
+      window.location.replace('/login');
     } catch (err) {
-      console.error("Logout error:", err);
-      useAppStore.getState().setLoading(false);
-      navigate('/login', { replace: true });
+      console.error("Logout failed:", err);
+      window.location.href = '/login';
     }
   };
 
