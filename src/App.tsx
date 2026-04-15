@@ -121,44 +121,42 @@ function App() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary-container)] border-t-[var(--color-primary)] rounded-full animate-spin"></div>
-          <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">ALTIV Sistema</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
-        {/* Protected Client Routes */}
-        <Route element={<AuthGuard allowedRole="cliente"><AppLayout /></AuthGuard>}>
-          <Route path="/cliente/dashboard" element={<ClientDashboard />} />
-          <Route path="/cliente/pedido/nuevo" element={<NewOrder />} />
-          <Route path="/cliente/pedido/:id/editar" element={<NewOrder />} />
-          <Route path="/cliente/pedido/:id" element={<ClientOrderDetails />} />
-        </Route>
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface)]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[var(--color-primary-container)] border-t-[var(--color-primary)] rounded-full animate-spin"></div>
+            <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">ALTIV Sistema</p>
+          </div>
+        </div>
+      ) : (
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Protected Client Routes */}
+          <Route element={<AuthGuard allowedRole="cliente"><AppLayout /></AuthGuard>}>
+            <Route path="/cliente/dashboard" element={<ClientDashboard />} />
+            <Route path="/cliente/pedido/nuevo" element={<NewOrder />} />
+            <Route path="/cliente/pedido/:id/editar" element={<NewOrder />} />
+            <Route path="/cliente/pedido/:id" element={<ClientOrderDetails />} />
+          </Route>
 
-        {/* Protected Admin Routes */}
-        <Route element={<AuthGuard allowedRole="admin"><AppLayout /></AuthGuard>}>
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/pedido/:id" element={<AdminOrderDetails />} />
-          <Route path="/admin/maestros" element={<AdminMasters />} />
-          <Route path="/admin/catalog" element={<AdminCatalog />} />
-        </Route>
-        
-        {/* Initial Redirect & Fallback */}
-        <Route path="/" element={<Navigate to="/cliente/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Protected Admin Routes */}
+          <Route element={<AuthGuard allowedRole="admin"><AppLayout /></AuthGuard>}>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/pedido/:id" element={<AdminOrderDetails />} />
+            <Route path="/admin/maestros" element={<AdminMasters />} />
+            <Route path="/admin/catalog" element={<AdminCatalog />} />
+          </Route>
+          
+          {/* Initial Redirect & Fallback */}
+          <Route path="/" element={<Navigate to="/cliente/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
       <Toaster position="top-right" />
     </Router>
   );
