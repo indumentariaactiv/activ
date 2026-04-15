@@ -90,7 +90,8 @@ const ClientOrderDetails = () => {
   
   if (!order) return null;
 
-  const isEditable = !['confirmed', 'in_production', 'delivered'].includes(order.status);
+  const status = (order.status || '').toLowerCase().trim();
+  const isEditable = !['confirmed', 'recibido', 'in_production', 'produccion', 'producción', 'delivered', 'finalizado'].includes(status);
 
   return (
     <div className="max-w-5xl mx-auto pb-24 px-4 animate-in fade-in duration-500">

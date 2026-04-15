@@ -39,8 +39,11 @@ const NewOrder = () => {
        if (error) throw error;
        if (data) {
          // IMPORTANT: If the order is already confirmed or further, redirect to view-only mode
-         const LOCKED_STATUSES = ['confirmed', 'in_production', 'delivered'];
-         if (LOCKED_STATUSES.includes(data.status)) {
+         const status = (data.status || '').toLowerCase().trim();
+         const LOCKED_STATUSES = ['confirmed', 'recibido', 'in_production', 'produccion', 'producción', 'delivered', 'finalizado'];
+         
+         if (LOCKED_STATUSES.includes(status)) {
+           toast.error(`Pedido bloqueado para edición (Estado: ${data.status})`);
            navigate(`/cliente/pedido/${id}`);
            return;
          }
