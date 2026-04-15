@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import toast from 'react-hot-toast';
 
 const ClientOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -9,6 +10,7 @@ const ClientOrderDetails = () => {
   const { user } = useAppStore();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     if (id && user) fetchOrderDetails();
@@ -16,8 +18,7 @@ const ClientOrderDetails = () => {
 
   const fetchOrderDetails = async () => {
     try {
-      console.log("ClientOrderDetails - Fetching for ID:", id);
-      
+      setLoading(true);
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -26,162 +27,251 @@ const ClientOrderDetails = () => {
             *,
             garment_types (name),
             sizes:order_item_sizes (size, quantity),
-            persons:order_item_persons (size, person_name, person_number)
+            persons:order_item_persons (size, person_name, person_number, role)
           )
         `)
         .eq('id', id)
         .eq('client_id', user?.id)
         .single();
         
-      if (error) {
-        console.error("ClientOrderDetails - Supabase Error:", error.message, error.details);
-        throw error;
-      }
-      
+      if (error) throw error;
       if (!data) {
-        console.warn("ClientOrderDetails - Order not found or access denied.");
         navigate('/cliente/dashboard');
         return;
       }
       
-      console.log("ClientOrderDetails - Data loaded successfully");
       setOrder(data);
     } catch (err: any) {
-      console.error("ClientOrderDetails - Execution Error:", err.message || err);
-      if (err.code !== 'PGRST116') {
-        alert("Error al cargar los detalles del pedido.");
-      }
+      console.error("Error loading order:", err);
+      toast.error("No se pudo cargar el pedido.");
       navigate('/cliente/dashboard');
     } finally {
       setLoading(false);
     }
   };
 
+  const confirmOrder = async () => {
+    if (!window.confirm("¿Seguro que quieres enviar el pedido? Una vez enviado no lo podrás editar más.")) return;
+    
+    setIsConfirming(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'confirmed' })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      toast.success("¡Pedido enviado correctamente!");
+      setOrder({...order, status: 'confirmed'});
+    } catch (err) {
+      console.error(err);
+      toast.error("Error al confirmar el pedido.");
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   if (loading) return (
-    <div className="flex flex-col items-center justify-center p-24 gap-4 bg-[var(--color-surface)] min-h-[60vh]">
+    <div className="flex flex-col items-center justify-center p-24 bg-[var(--color-surface)] min-h-[60vh]">
       <div className="w-12 h-12 border-4 border-[var(--color-primary-container)] border-t-[var(--color-primary)] rounded-full animate-spin"></div>
-      <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">Cargando detalles...</p>
     </div>
   );
   
   if (!order) return null;
 
+  const isEditable = order.status === 'pending';
+
   return (
-    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in zoom-in-95">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-5xl mx-auto pb-24 px-4 animate-in fade-in duration-500">
+      {/* Header Info */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="font-headline text-3xl font-extrabold break-words">{order.name}</h1>
-          <p className="text-[var(--color-on-surface-variant)] text-sm mt-1">Pedido registrado el {new Date(order.created_at).toLocaleDateString()}</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)]">Revisión Técnica de Pedido</span>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+              order.status === 'pending' ? 'bg-orange-100 text-orange-700' : 
+              order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 
+              'bg-green-100 text-green-700'
+            }`}>
+              {order.status === 'pending' ? 'Borrador / Pendiente' : order.status === 'confirmed' ? 'Enviado / Confirmado' : 'En Producción'}
+            </span>
+          </div>
+          <h1 className="font-headline text-4xl font-extrabold tracking-tight leading-none text-[var(--color-on-surface)] uppercase">{order.name}</h1>
+          <p className="text-[var(--color-on-surface-variant)] text-sm mt-2 font-medium">Iniciado el {new Date(order.created_at).toLocaleDateString()}</p>
         </div>
-        <Link to="/cliente/dashboard" className="btn btn-secondary text-sm hidden md:flex">
-          <span className="material-symbols-outlined">arrow_back</span>
-          Volver al Inicio
-        </Link>
+        
+        <div className="flex gap-3">
+          <Link to="/cliente/dashboard" className="btn btn-secondary text-sm">
+            <span className="material-symbols-outlined text-md">arrow_back</span>
+            Dashboard
+          </Link>
+          {isEditable && (
+            <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200">
+              <span className="material-symbols-outlined text-md">edit</span>
+              Seguir Editando
+            </Link>
+          )}
+        </div>
       </div>
 
-      <div className="card p-6 md:p-8 border-t-4 border-[var(--color-primary)]">
-        <h3 className="font-headline text-xl font-bold mb-6 border-b border-[var(--color-outline-variant)]/20 pb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[var(--color-primary)]">inventory_2</span>
-          Desglose de Prendas
-        </h3>
+      {/* Main Technical Summary */}
+      <div className="space-y-10">
+        {order.order_items.map((item: any) => {
+          const isPersonalized = item.has_personalization;
+          const sizes = item.sizes || [];
+          const persons = item.persons || [];
+          const itemsCount = isPersonalized ? persons.length : sizes.reduce((acc: number, s: any) => acc + (s.quantity || 0), 0);
+          const itemTypeName = item.garment_types?.name || 'Prenda';
+          const isShorts = itemTypeName.toLowerCase().includes('pantalon') || itemTypeName.toLowerCase().includes('pantalón');
 
-        <div className="space-y-6">
-          {order.order_items.map((item: any) => {
-             const isPersonalized = item.has_personalization;
-             // Use safety fallbacks and aliases correctly
-             const sizes = item.sizes || [];
-             const persons = item.persons || [];
-             const itemsCount = isPersonalized ? persons.length : sizes.reduce((acc: number, s: any) => acc + (s.quantity || 0), 0);
-             const itemTypeName = item.garment_types?.name || item.garment_type_name || 'Prenda';
-
-             return (
-               <div key={item.id} className="card p-5 border border-[var(--color-outline-variant)]/20 shadow-none bg-[var(--color-surface-container-low)]">
-                  <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 mb-4">
-                    <div>
-                      <p className="font-bold font-headline text-lg uppercase tracking-tight">{itemTypeName}</p>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface)] bg-[var(--color-surface-container-highest)] border border-[var(--color-outline-variant)]/30 px-2 py-1 rounded inline-block mt-1 shadow-sm">{item.category}</span>
-                    </div>
-
-                    {item.custom_design_url && (
-                      <div className="flex flex-col items-center gap-1 bg-white p-1 rounded-lg shadow-sm border border-[var(--color-outline-variant)]/10">
-                        <img src={item.custom_design_url} alt="Diseño Adjunto" className="w-16 h-16 object-cover rounded" />
-                        <a href={item.custom_design_url} target="_blank" rel="noreferrer" className="text-[9px] text-[var(--color-primary)] font-bold hover:underline mb-1">
-                          Ver Original
-                        </a>
-                      </div>
-                    )}
+          return (
+            <div key={item.id} className="bg-white rounded-3xl overflow-hidden border border-[var(--color-outline-variant)]/20 shadow-xl shadow-gray-100/50">
+              {/* Card Header (Industrial Look) */}
+              <div className="bg-[var(--color-surface-container-low)] p-6 border-b border-[var(--color-outline-variant)]/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[var(--color-primary)] text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-[var(--color-primary-container)]/30">
+                    {itemsCount}
                   </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-[var(--color-surface)] p-3 rounded-lg border border-[var(--color-outline-variant)]/10 mb-4">
-                    <div>
-                       <p className="text-[var(--color-on-surface-variant)] mb-0.5 uppercase tracking-wider font-bold text-[9px]">Color Base</p>
-                       <p className="font-bold">{item.base_color || '-'}</p>
-                    </div>
-                    {item.sleeve_type && item.sleeve_type !== 'Sin Mangas' && (
-                       <div>
-                         <p className="text-[var(--color-on-surface-variant)] mb-0.5 uppercase tracking-wider font-bold text-[9px]">Mangas</p>
-                         <p className="font-bold">{item.sleeve_type} {item.sleeve_color ? `(${item.sleeve_color})` : ''}</p>
-                       </div>
-                    )}
-                    <div>
-                       <p className="text-[var(--color-on-surface-variant)] mb-0.5 uppercase tracking-wider font-bold text-[9px]">Cant. Total</p>
-                       <p className="font-bold text-[var(--color-primary)]">{itemsCount} unidades</p>
-                    </div>
-                  </div>
-
                   <div>
-                     <h5 className="font-bold text-xs uppercase text-[var(--color-on-surface-variant)] tracking-widest mb-2 border-b border-[var(--color-outline-variant)]/10 pb-1">
-                       {isPersonalized ? 'Plantel Personalizado' : 'Distribución de Talles'}
-                     </h5>
-                     
-                     {isPersonalized ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs bg-white rounded-lg overflow-hidden border border-[var(--color-outline-variant)]/10">
-                            <thead className="bg-[var(--color-surface-container-highest)] text-[var(--color-on-surface-variant)]">
-                              <tr>
-                                <th className="p-2 font-bold uppercase tracking-wider">Talle</th>
-                                <th className="p-2 font-bold uppercase tracking-wider">Nombre</th>
-                                <th className="p-2 font-bold uppercase tracking-wider text-right pr-4">Nº</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {persons.map((p: any, i: number) => (
-                                <tr key={i} className="border-b border-[var(--color-outline-variant)]/5 last:border-0 hover:bg-[var(--color-primary-container)]/5 transition-colors">
-                                  <td className="p-2 font-black font-headline text-md text-[var(--color-primary)] w-16">{p.size}</td>
-                                  <td className="p-2 font-semibold uppercase">{p.person_name}</td>
-                                  <td className="p-2 text-right font-black text-lg pr-4 text-[var(--color-on-surface)]">{p.person_number || '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                     ) : (
-                        <div className="flex flex-wrap gap-2">
-                           {sizes.filter((s: any) => s.quantity > 0).map((s: any, i: number) => (
-                             <div key={i} className="bg-white px-4 py-2 rounded-xl text-xs border border-[var(--color-outline-variant)]/20 shadow-sm flex flex-col items-center min-w-[50px]">
-                               <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest mb-1">{s.size}</span>
-                               <span className="text-lg font-headline font-black text-[var(--color-primary)]">{s.quantity}</span>
-                             </div>
-                           ))}
-                        </div>
-                     )}
+                    <h3 className="font-headline text-xl font-black uppercase tracking-tight">{itemTypeName}</h3>
+                    <p className="text-[10px] font-bold text-[var(--color-on-surface-variant)] uppercase tracking-widest">{item.category}</p>
                   </div>
-
-                  {item.notes && (
-                     <div className="mt-4 pt-4 border-t border-[var(--color-outline-variant)]/10 text-left">
-                        <p className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-[0.2em] mb-1">Observaciones / Pedido Especial</p>
-                        <p className="text-[11px] font-headline font-semibold text-[var(--color-on-surface)] leading-relaxed">{item.notes}</p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                   <div className="text-right hidden sm:block">
+                     <p className="text-[9px] font-black text-[var(--color-on-surface-variant)] uppercase tracking-widest">Estado</p>
+                     <p className="text-xs font-bold text-[var(--color-primary)] uppercase">OK - REVISÓ TÉCNICO</p>
+                   </div>
+                   {item.custom_design_url && (
+                     <div className="bg-white p-1 rounded-xl border border-[var(--color-outline-variant)]/10 shadow-sm group relative">
+                       <img src={item.custom_design_url} alt="Ref" className="w-14 h-14 object-cover rounded-lg" />
+                       <a href={item.custom_design_url} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg text-white text-[10px] font-bold">VER</a>
                      </div>
+                   )}
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8">
+                {/* Secondary Specs Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 bg-[var(--color-surface-container-lowest)] p-4 rounded-2xl border border-[var(--color-outline-variant)]/5">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Color Base</span>
+                    <p className="font-bold text-sm uppercase">{item.base_color || 'No especificado'}</p>
+                  </div>
+                  {item.sleeve_type && item.garment_types?.name?.toLowerCase().includes('remera') && (
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo Manga</span>
+                      <p className="font-bold text-sm uppercase">{item.sleeve_type} {item.sleeve_color ? `(${item.sleeve_color})` : ''}</p>
+                    </div>
                   )}
-               </div>
-             );
-          })}
+                  {item.collar_type && (
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo Cuello</span>
+                      <p className="font-bold text-sm uppercase">{item.collar_type}</p>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tela sugerida</span>
+                    <p className="font-bold text-sm uppercase">{item.fabric_type || 'Set de Poliéster'}</p>
+                  </div>
+                </div>
+
+                {/* Quantitative Section */}
+                <div className="rounded-2xl border border-[var(--color-outline-variant)]/10 overflow-hidden">
+                  {isPersonalized ? (
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead className="bg-[var(--color-surface-container-high)] border-b border-[var(--color-outline-variant)]/10">
+                        <tr>
+                          <th className="p-4 font-black uppercase tracking-widest text-[9px] w-20">Talle</th>
+                          {!isShorts && <th className="p-4 font-black uppercase tracking-widest text-[9px]">Nombre a Estampar</th>}
+                          <th className="p-4 font-black uppercase tracking-widest text-[9px] text-center w-24">Número</th>
+                          <th className="p-4 font-black uppercase tracking-widest text-[9px]">Función / Notas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-outline-variant)]/5">
+                        {persons.map((p: any, i: number) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4 font-black text-lg text-[var(--color-primary)]">{p.size}</td>
+                            {!isShorts && <td className="p-4 font-extrabold uppercase text-sm tracking-tight">{p.person_name || '-'}</td>}
+                            <td className="p-4 text-center font-black text-2xl font-headline italic">{p.person_number || '-'}</td>
+                            <td className="p-4 text-[10px] font-bold uppercase text-[var(--color-on-surface-variant)]">{p.role || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="p-6">
+                      <p className="text-[9px] font-black text-[var(--color-on-surface-variant)] uppercase tracking-widest mb-4">Curva de Talles</p>
+                      <div className="flex flex-wrap gap-4">
+                        {sizes.filter((s: any) => s.quantity > 0).map((s: any, i: number) => (
+                          <div key={i} className="bg-[var(--color-surface)] px-6 py-4 rounded-2xl border-2 border-[var(--color-outline-variant)]/10 flex flex-col items-center">
+                            <span className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-1">{s.size}</span>
+                            <span className="text-3xl font-black font-headline text-[var(--color-primary)]">{s.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Notes (Optional) */}
+                {item.notes && (
+                  <div className="mt-8 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
+                    <div className="flex gap-3">
+                      <span className="material-symbols-outlined text-orange-400">info</span>
+                      <div>
+                        <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Indicaciones Especiales</p>
+                        <p className="text-xs font-medium text-orange-900 leading-relaxed">{item.notes}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Submission CTA Block */}
+      {isEditable && (
+        <div className="mt-16 sticky bottom-6 z-50 animate-in slide-in-from-bottom-5 duration-700">
+           <div className="bg-[var(--color-surface)] border-2 border-[var(--color-primary)] p-8 rounded-[40px] shadow-2xl shadow-[var(--color-primary)]/20 flex flex-col items-center gap-6 max-w-2xl mx-auto backdrop-blur-xl">
+             <div className="text-center">
+                <h2 className="font-headline text-3xl font-black uppercase tracking-tight text-[var(--color-primary)]">¿Todo listo?</h2>
+                <p className="text-sm text-[var(--color-on-surface-variant)] mt-2 font-medium">Revisá bien los talles y nombres. No podrá haber cambios después.</p>
+             </div>
+             
+             <div className="flex flex-col sm:flex-row gap-4 w-full">
+               <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-secondary flex-1 py-4 rounded-2xl font-black text-md uppercase">
+                 <span className="material-symbols-outlined">edit</span>
+                 Volver a Editar
+               </Link>
+               <button 
+                onClick={confirmOrder}
+                disabled={isConfirming}
+                className="btn btn-primary flex-[2] bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black text-md uppercase shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+               >
+                 {isConfirming ? 'Enviando...' : (
+                   <>
+                    Confirmar y Enviar Pedido
+                    <span className="material-symbols-outlined">send</span>
+                   </>
+                 )}
+               </button>
+             </div>
+           </div>
         </div>
-      </div>
+      )}
       
-      <div className="mt-6 flex justify-center md:hidden">
-         <Link to="/cliente/dashboard" className="btn btn-secondary w-full">Volver al Inicio</Link>
-      </div>
+      {!isEditable && (
+        <div className="mt-12 p-8 bg-blue-50 border border-blue-100 rounded-[40px] text-center max-w-2xl mx-auto">
+           <span className="material-symbols-outlined text-4xl text-blue-600 mb-4">verified</span>
+           <h3 className="font-headline text-2xl font-black uppercase text-blue-900">Pedido Recibido</h3>
+           <p className="text-blue-700 font-medium mt-2">Tu pedido ha sido bloqueado y ya se encuentra en nuestro sistema administrativo para ser procesado.</p>
+        </div>
+      )}
     </div>
   );
 };

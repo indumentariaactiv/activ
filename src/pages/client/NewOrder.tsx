@@ -37,6 +37,12 @@ const NewOrder = () => {
 
        if (error) throw error;
        if (data) {
+         // IMPORTANT: If the order is already confirmed or further, redirect to view-only mode
+         if (data.status !== 'pending') {
+           navigate(`/cliente/pedido/${id}`);
+           return;
+         }
+
          setOrderName(data.name);
          const mappedItems: GarmentData[] = data.order_items.map((item: any) => ({
            id: item.id,

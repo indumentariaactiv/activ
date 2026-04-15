@@ -154,6 +154,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
 
   const currentTypeObj = types.find(t => t.id === selectedTypeId);
   const availableSizesForCategory = currentTypeObj && selectedCategory ? (currentTypeObj.categories[selectedCategory] as string[]) : [];
+  const isShorts = currentTypeObj?.name.toLowerCase().includes('pantalon') || currentTypeObj?.name.toLowerCase().includes('pantalón');
 
   const [newPersonSize, setNewPersonSize] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
@@ -162,7 +163,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
   const [newPersonQuantity, setNewPersonQuantity] = useState(1);
 
   const addPersonRow = () => {
-    if (!newPersonName.trim()) return;
+    if (!isShorts && !newPersonName.trim()) return;
     
     const qty = Math.max(1, newPersonQuantity);
     const newRows: any[] = [];
@@ -354,7 +355,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
                         <thead className="sticky top-0 bg-[var(--color-surface-container-high)] z-10">
                           <tr className="border-b border-[var(--color-outline-variant)]/20">
                             <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)]">Talle</th>
-                            <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)]">Nombre</th>
+                            {!isShorts && <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)]">Nombre</th>}
                             <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)] text-center">Nº</th>
                             <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)]">Función</th>
                             <th className="p-3"></th>
@@ -367,7 +368,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
                             [...persons].reverse().map(p => (
                               <tr key={p.id} className="hover:bg-[var(--color-surface-container-highest)]/50 transition-colors">
                                 <td className="p-3 text-sm font-black text-[var(--color-primary)]">{p.size}</td>
-                                <td className="p-3 text-sm font-bold">{p.name}</td>
+                                {!isShorts && <td className="p-3 text-sm font-bold">{p.name}</td>}
                                 <td className="p-3 text-sm font-headline font-black text-center">{p.number || '-'}</td>
                                 <td className="p-3 text-[10px] uppercase font-bold text-[var(--color-on-surface-variant)]">{p.role || '-'}</td>
                                 <td className="p-3 text-right">
@@ -404,29 +405,31 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
                          </div>
                        </div>
 
-                       <div>
-                         <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest">2. Nombre a Estampar</label>
-                         <input id="new-person-name" type="text" className="input-field text-center font-bold" placeholder="NOMBRE" value={newPersonName} onChange={e => setNewPersonName(e.target.value.toUpperCase())} />
-                         <div className="grid grid-cols-3 gap-3 mt-4">
+                       {!isShorts && (
+                         <div>
+                           <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest">2. Nombre a Estampar</label>
+                           <input id="new-person-name" type="text" className="input-field text-center font-bold" placeholder="NOMBRE" value={newPersonName} onChange={e => setNewPersonName(e.target.value.toUpperCase())} />
+                         </div>
+                       )}
+                       <div className="grid grid-cols-3 gap-3 mt-4">
                           <div className="col-span-1">
-                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">3. Número</label>
+                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '2.' : '3.'} Número</label>
                             <input type="text" className="input-field text-center font-headline font-black text-xl" placeholder="10" value={newPersonNumber} onChange={e => setNewPersonNumber(e.target.value)} />
                           </div>
                           <div className="col-span-1">
-                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">4. Cantidad</label>
+                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '3.' : '4.'} Cantidad</label>
                             <input type="number" min="1" className="input-field text-center font-bold" value={newPersonQuantity} onChange={e => setNewPersonQuantity(parseInt(e.target.value) || 1)} />
                           </div>
                           <div className="col-span-1">
-                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">5. Función</label>
+                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '4.' : '5.'} Función</label>
                             <input type="text" className="input-field text-[10px] h-[52px]" placeholder="Ej: Arquero" value={newPersonRole} onChange={e => setNewPersonRole(e.target.value)} />
                           </div>
                         </div>
-                       </div>
 
                        <button 
                         type="button" 
                         onClick={addPersonRow} 
-                        disabled={!newPersonName.trim()} 
+                        disabled={!isShorts && !newPersonName.trim()} 
                         className="btn w-full bg-[var(--color-primary)] text-[var(--color-on-primary)] font-black py-4 rounded-xl shadow-lg hover:shadow-[0_0_20px_var(--color-primary-container)] disabled:opacity-50 transition-all mt-2"
                         style={{ background: 'linear-gradient(135deg, var(--color-primary), #00a05a)' }}
                        >
