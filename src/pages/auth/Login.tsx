@@ -11,15 +11,16 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setLoading: setGlobalLoading, profile } = useAppStore();
+  const { setLoading: setGlobalLoading, profile, user, isLoading: isGlobalLoading } = useAppStore();
 
   useEffect(() => {
     // Clear any stale loading state when hitting the login page
     setGlobalLoading(false);
   }, [setGlobalLoading]);
 
-  // Redirection Watcher: Once App.tsx loads the profile, we navigate
+  // Redirection Watcher: Once App.tsx loads the profile (or fails to), we navigate
   useEffect(() => {
+    // Scenario A: Profile found successfully
     if (profile) {
       console.log("Login - Profile detected, navigating to:", profile.role);
       if (profile.role === 'admin') {
@@ -27,8 +28,21 @@ const Login = () => {
       } else {
         navigate('/cliente/dashboard');
       }
+      return;
     }
-  }, [profile, navigate]);
+
+    // Scenario B: User is logged in, but global loading has finished without finding a profile
+    // This often happens for newly registered users where the trigger is slightly slow.
+    if (user && !isGlobalLoading && !profile) {
+      console.log("Login - User logged in but no profile found. Using safety fallback to client dashboard.");
+      navigate('/cliente/dashboard');
+    }
+
+    // Fail-safe: If global loading finished and we are still here, reset local loading state
+    if (!isGlobalLoading && loading) {
+       setLoading(false);
+    }
+  }, [profile, user, isGlobalLoading, navigate, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
