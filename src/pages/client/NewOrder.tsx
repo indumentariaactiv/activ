@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { GarmentForm } from '../../components/orders/GarmentForm';
 import type { GarmentData } from '../../components/orders/GarmentForm';
+import toast from 'react-hot-toast';
 
 const NewOrder = () => {
   const [step, setStep] = useState(1);
@@ -38,7 +39,8 @@ const NewOrder = () => {
        if (error) throw error;
        if (data) {
          // IMPORTANT: If the order is already confirmed or further, redirect to view-only mode
-         if (data.status !== 'pending') {
+         const LOCKED_STATUSES = ['confirmed', 'in_production', 'delivered'];
+         if (LOCKED_STATUSES.includes(data.status)) {
            navigate(`/cliente/pedido/${id}`);
            return;
          }
@@ -70,8 +72,10 @@ const NewOrder = () => {
          }));
          setOrderItems(mappedItems);
        }
-     } catch (err) {
+     } catch (err: any) {
        console.error("Error fetching order for edit:", err);
+       toast.error("No se pudo cargar el pedido para editar.");
+       navigate('/cliente/dashboard');
      } finally {
        setLoading(false);
      }
@@ -92,7 +96,10 @@ const NewOrder = () => {
       if (id) {
         const { data: updateData, error: updateError } = await supabase
           .from('orders')
-          .update({ name: orderName })
+          .update({ 
+            name: orderName,
+            status: 'draft' // Promote legacy 'pending' to 'draft' standard
+          })
           .eq('id', id)
           .select()
           .single();

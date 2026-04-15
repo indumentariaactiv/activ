@@ -7,14 +7,23 @@ import toast from 'react-hot-toast';
 const ClientOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAppStore();
+  const { user, isLoading: globalLoading } = useAppStore();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
-    if (id && user) fetchOrderDetails();
-  }, [id, user]);
+    // If auth state finished and no user, we can't fetch but shouldn't hang
+    if (!globalLoading && !user) {
+      setLoading(false);
+      navigate('/login');
+      return;
+    }
+
+    if (id && user) {
+      fetchOrderDetails();
+    }
+  }, [id, user, globalLoading]);
 
   const fetchOrderDetails = async () => {
     try {
@@ -26,6 +35,7 @@ const ClientOrderDetails = () => {
           order_items (
             *,
             garment_types (name),
+            designs (image_url),
             sizes:order_item_sizes (size, quantity),
             persons:order_item_persons (size, person_name, person_number, role)
           )
@@ -80,7 +90,7 @@ const ClientOrderDetails = () => {
   
   if (!order) return null;
 
-  const isEditable = order.status === 'draft';
+  const isEditable = !['confirmed', 'in_production', 'delivered'].includes(order.status);
 
   return (
     <div className="max-w-5xl mx-auto pb-24 px-4 animate-in fade-in duration-500">
@@ -150,10 +160,10 @@ const ClientOrderDetails = () => {
                      <p className="text-[9px] font-black text-[var(--color-on-surface-variant)] uppercase tracking-widest">Estado</p>
                      <p className="text-xs font-bold text-[var(--color-primary)] uppercase">OK - REVISÓ TÉCNICO</p>
                    </div>
-                   {item.custom_design_url && (
+                   {(item.custom_design_url || item.designs?.image_url) && (
                      <div className="bg-white p-1 rounded-xl border border-[var(--color-outline-variant)]/10 shadow-sm group relative">
-                       <img src={item.custom_design_url} alt="Ref" className="w-14 h-14 object-cover rounded-lg" />
-                       <a href={item.custom_design_url} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg text-white text-[10px] font-bold">VER</a>
+                       <img src={item.custom_design_url || item.designs?.image_url} alt="Ref" className="w-14 h-14 object-cover rounded-lg" />
+                       <a href={item.custom_design_url || item.designs?.image_url} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg text-white text-[10px] font-bold">VER</a>
                      </div>
                    )}
                 </div>
