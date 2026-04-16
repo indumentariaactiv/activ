@@ -41,22 +41,39 @@ const AdminCatalog = () => {
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+    
     fetchInitialData();
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const fetchInitialData = async () => {
-    setLoading(true);
+    if (isMountedRef.current) {
+      setLoading(true);
+    }
     try {
       const { data: tData } = await supabase.from('garment_types').select('id, name').order('name');
-      setTypes(tData || []);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setTypes(tData || []);
+      }
       
       await fetchDesigns();
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -71,7 +88,10 @@ const AdminCatalog = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setDesigns(data || []);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setDesigns(data || []);
+      }
     } catch (err) {
       console.error(err);
     }

@@ -1,9 +1,41 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { GarmentForm } from '../../components/orders/GarmentForm';
 import type { GarmentData } from '../../components/orders/GarmentForm';
 import toast from 'react-hot-toast';
+
+const STANDARD_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+const KIDS_SIZES = ['4', '6', '8', '10', '12', '14', '16'];
+const UNISEX_PANTALON_SIZES = [...KIDS_SIZES, ...STANDARD_SIZES];
+
+const GARMENT_TYPE_FALLBACKS = [
+  { id: 'rem-0001', name: 'Remeras', categories: { Hombre: STANDARD_SIZES, Mujer: STANDARD_SIZES, Niño: KIDS_SIZES } },
+  { id: 'short-0002', name: 'Short', categories: { Hombre: STANDARD_SIZES, Mujer: STANDARD_SIZES, Niño: KIDS_SIZES } },
+  { id: 'musculosa-0003', name: 'Musculosas', categories: { Hombre: STANDARD_SIZES, Mujer: STANDARD_SIZES } },
+  { id: 'campera-0004', name: 'Camperas', categories: { Hombre: STANDARD_SIZES, Mujer: STANDARD_SIZES, Niño: KIDS_SIZES } },
+  { id: 'buzo-0005', name: 'Buzos', categories: { Hombre: STANDARD_SIZES, Mujer: STANDARD_SIZES, Niño: KIDS_SIZES } },
+  { id: 'pantalon-0006', name: 'Pantalón Largo', categories: { Unisex: UNISEX_PANTALON_SIZES } },
+  { id: 'bandera-0007', name: 'Bandera', categories: { Cantidad: ['Cantidad'] } },
+  { id: 'bolso-deportivo-0008', name: 'Bolso Deportivo', categories: { Cantidad: ['Cantidad'] } },
+  { id: 'bolso-paletero-0009', name: 'Bolso Paletero', categories: { Cantidad: ['Cantidad'] } },
+  { id: 'botinero-0010', name: 'Botinero', categories: { Cantidad: ['Cantidad'] } }
+];
+
+const resolveTypeTemplate = (name: string) => {
+  const key = name.toLowerCase();
+  if (key.includes('remera')) return GARMENT_TYPE_FALLBACKS[0];
+  if (key.includes('short')) return GARMENT_TYPE_FALLBACKS[1];
+  if (key.includes('musculosa')) return GARMENT_TYPE_FALLBACKS[2];
+  if (key.includes('campera')) return GARMENT_TYPE_FALLBACKS[3];
+  if (key.includes('buzo')) return GARMENT_TYPE_FALLBACKS[4];
+  if (key.includes('pantal')) return GARMENT_TYPE_FALLBACKS[5];
+  if (key.includes('bandera')) return GARMENT_TYPE_FALLBACKS[6];
+  if (key.includes('paletero')) return GARMENT_TYPE_FALLBACKS[8];
+  if (key.includes('botinero')) return GARMENT_TYPE_FALLBACKS[9];
+  if (key.includes('bolso') && key.includes('deportivo')) return GARMENT_TYPE_FALLBACKS[7];
+  return GARMENT_TYPE_FALLBACKS.find(item => key.includes(item.name.toLowerCase())) || GARMENT_TYPE_FALLBACKS[0];
+};
 
 const NewOrder = () => {
   const [step, setStep] = useState(1);
@@ -12,15 +44,77 @@ const NewOrder = () => {
   const [showGarmentForm, setShowGarmentForm] = useState(false);
   const [editingGarment, setEditingGarment] = useState<GarmentData | null>(null);
   const [loading, setLoading] = useState(false);
-   const navigate = useNavigate();
-   const { id } = useParams<{ id: string }>();
+  
+  // Maestros globales para el formulario
+  const [garmentTypes, setGarmentTypes] = useState<any[]>([]);
+  const [designsGallery, setDesignsGallery] = useState<any[]>([]);
 
-   useEffect(() => {
-     if (id) fetchExistingOrder();
-   }, [id]);
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+    
+    fetchMaestros();
+    if (id) fetchExistingOrder();
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [id]);
+
+  const fetchMaestros = async () => {
+    try {
+      // 1. Fetch Garment Types
+      const { data: gData } = await supabase
+        .from('garment_types')
+        .select('*')
+        .order('name');
+      
+      if (gData && gData.length > 0) {
+        const updatedGData = gData.map(g => {
+          const template = resolveTypeTemplate(g.name || '');
+          return {
+            ...g,
+            name: template?.name || g.name,
+            categories: template?.categories || g.categories || {},
+          };
+        });
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setGarmentTypes(updatedGData);
+        }
+      } else {
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setGarmentTypes(GARMENT_TYPE_FALLBACKS);
+        }
+      }
+
+      // 2. Fetch Designs Gallery
+      const { data: dData } = await supabase
+        .from('designs')
+        .select('*')
+        .eq('active', true);
+        
+      if (dData) {
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          setDesignsGallery(dData);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching masters:", err);
+    }
+  };
 
    const fetchExistingOrder = async () => {
-     setLoading(true);
+     if (isMountedRef.current) {
+       setLoading(true);
+     }
      try {
        const { data, error } = await supabase
          .from('orders')
@@ -43,12 +137,13 @@ const NewOrder = () => {
          const LOCKED_STATUSES = ['confirmed', 'recibido', 'in_production', 'produccion', 'producción', 'delivered', 'finalizado'];
          
          if (LOCKED_STATUSES.includes(status)) {
-           toast.error(`Pedido bloqueado para edición (Estado: ${data.status})`);
+           if (isMountedRef.current) {
+             toast.error(`Pedido bloqueado para edición (Estado: ${data.status})`);
+           }
            navigate(`/cliente/pedido/${id}`);
            return;
          }
 
-         setOrderName(data.name);
          const mappedItems: GarmentData[] = data.order_items.map((item: any) => ({
            id: item.id,
            garment_type_id: item.garment_type_id,
@@ -73,14 +168,25 @@ const NewOrder = () => {
              role: p.role
            }))
          }));
-         setOrderItems(mappedItems);
+         
+         // Only update state if component is still mounted
+         if (isMountedRef.current) {
+           setOrderName(data.name);
+           setOrderItems(mappedItems);
+           setStep(2); // Ir directamente a la sección de prendas cuando se carga un pedido existente
+         }
        }
      } catch (err: any) {
        console.error("Error fetching order for edit:", err);
-       toast.error("No se pudo cargar el pedido para editar.");
+       if (isMountedRef.current) {
+         toast.error("No se pudo cargar el pedido para editar.");
+       }
        navigate('/cliente/dashboard');
      } finally {
-       setLoading(false);
+       // Only update state if component is still mounted
+       if (isMountedRef.current) {
+         setLoading(false);
+       }
      }
    };
 
@@ -125,52 +231,107 @@ const NewOrder = () => {
         orderData = insertData;
       }
 
-      // 2. Insert Items sequentially to ensure references (allowed because order is draft)
+      // 2. Group items by fabric type respecting ficha rules:
+      // - Remera + Short misma tela → 1 ficha
+      // - Remera + Short distinta tela → 2 fichas
+      // - Remera + Campera → siempre 2 fichas (Campera en ficha separada)
+      
+      interface FabricGroupDef {
+        id: number;
+        fabric: string;
+        garmentTypes: string[];
+      }
+
+      const fabricGroups: FabricGroupDef[] = [];
+      const itemsWithFabricGroup: any[] = [];
+
       for (const item of orderItems) {
-        const { data: itemData, error: itemError } = await supabase
-          .from('order_items')
-          .insert({
-            order_id: orderData.id,
-            garment_type_id: item.garment_type_id,
-            category: item.category,
-            base_color: item.base_color,
-            sleeve_type: item.sleeve_type,
-            sleeve_color: item.sleeve_color,
-            fabric_type: item.fabric_type,
-            collar_type: item.collar_type,
-            armhole_color: item.armhole_color,
-            design_id: item.design_id,
-            custom_design_url: item.custom_design_url,
-            has_personalization: item.has_personalization,
-            notes: item.observations
-          })
-          .select()
-          .single();
+        const typeName = item.garment_type_name?.toLowerCase() || '';
+        const isCampera = typeName.includes('campera');
+        const isRemera = typeName.includes('remera');
+        const isShort = typeName.includes('short');
+        const isMusculosa = typeName.includes('musculosa');
+        const fabricKey = item.fabric_type || 'sin-tela';
 
-        if (itemError) throw itemError;
-
-        // 3. Insert Sizes OR Persons
-        if (item.has_personalization && item.persons.length > 0) {
-          const personsToInsert = item.persons.map(p => ({
-            order_item_id: itemData.id,
-            size: p.size,
-            person_name: p.name,
-            person_number: p.number,
-            role: p.role
-          }));
-          await supabase.from('order_item_persons').insert(personsToInsert);
-        } else if (!item.has_personalization && item.sizes.length > 0) {
-          const sizesToInsert = item.sizes
-            .filter(s => s.quantity > 0)
-            .map(s => ({
-              order_item_id: itemData.id,
-              size: s.size,
-              quantity: s.quantity
-            }));
-          if (sizesToInsert.length > 0) {
-            await supabase.from('order_item_sizes').insert(sizesToInsert);
+        // Regla: Campera siempre va en ficha separada
+        if (isCampera) {
+          const newGroupId = fabricGroups.length + 1;
+          fabricGroups.push({ id: newGroupId, fabric: fabricKey, garmentTypes: ['Campera'] });
+          itemsWithFabricGroup.push({ ...item, fabric_group: newGroupId });
+        } 
+        // Regla: Remera + Short pueden compartir ficha si tienen misma tela
+        else if (isRemera || isShort || isMusculosa) {
+          let existingGroup = fabricGroups.find(
+            g => g.fabric === fabricKey && !g.garmentTypes.includes('Campera')
+          );
+          if (existingGroup) {
+            itemsWithFabricGroup.push({ ...item, fabric_group: existingGroup.id });
+          } else {
+            const newGroupId = fabricGroups.length + 1;
+            fabricGroups.push({ id: newGroupId, fabric: fabricKey, garmentTypes: [typeName] });
+            itemsWithFabricGroup.push({ ...item, fabric_group: newGroupId });
+          }
+        } 
+        // Para otras prendas: agrupar por tela
+        else {
+          let existingGroup = fabricGroups.find(g => g.fabric === fabricKey);
+          if (existingGroup) {
+            itemsWithFabricGroup.push({ ...item, fabric_group: existingGroup.id });
+          } else {
+            const newGroupId = fabricGroups.length + 1;
+            fabricGroups.push({ id: newGroupId, fabric: fabricKey, garmentTypes: [typeName] });
+            itemsWithFabricGroup.push({ ...item, fabric_group: newGroupId });
           }
         }
+      }
+
+      // 3. Insert items sequentially with correct fabric_group assignment
+      for (const item of itemsWithFabricGroup) {
+          const { data: itemData, error: itemError } = await supabase
+            .from('order_items')
+            .insert({
+              order_id: orderData.id,
+              garment_type_id: item.garment_type_id,
+              category: item.category,
+              base_color: item.base_color,
+              sleeve_type: item.sleeve_type,
+              sleeve_color: item.sleeve_color,
+              fabric_type: item.fabric_type,
+              collar_type: item.collar_type,
+              armhole_color: item.armhole_color,
+              design_id: item.design_id,
+              custom_design_url: item.custom_design_url,
+              has_personalization: item.has_personalization,
+              notes: item.observations,
+              fabric_group: item.fabric_group // Use the calculated fabric_group
+            })
+            .select()
+            .single();
+
+          if (itemError) throw itemError;
+
+          // 4. Insert Sizes OR Persons
+          if (item.has_personalization && item.persons.length > 0) {
+            const personsToInsert = item.persons.map((p: any) => ({
+              order_item_id: itemData.id,
+              size: p.size,
+              person_name: p.name,
+              person_number: p.number,
+              role: p.role
+            }));
+            await supabase.from('order_item_persons').insert(personsToInsert);
+          } else if (!item.has_personalization && item.sizes.length > 0) {
+            const sizesToInsert = item.sizes
+              .filter((s: any) => s.quantity > 0)
+              .map((s: any) => ({
+                order_item_id: itemData.id,
+                size: s.size,
+                quantity: s.quantity
+              }));
+            if (sizesToInsert.length > 0) {
+              await supabase.from('order_item_sizes').insert(sizesToInsert);
+            }
+          }
       }
 
       // 4. Success -> Redirect to the high-fidelity summary page
@@ -238,6 +399,9 @@ const NewOrder = () => {
             {showGarmentForm ? (
               <GarmentForm 
                 initialData={editingGarment || undefined}
+                types={garmentTypes}
+                gallery={designsGallery}
+                existingItems={orderItems}
                 onSave={(data) => {
                   setOrderItems(prev => {
                     const exists = prev.find(p => p.id === data.id);

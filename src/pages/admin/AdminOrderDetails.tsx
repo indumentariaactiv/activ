@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { utils, writeFile } from 'xlsx';
@@ -12,6 +12,7 @@ const AdminOrderDetails = () => {
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['4', '6', '8', '10', '12', '14', '16', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
   
@@ -31,7 +32,15 @@ const AdminOrderDetails = () => {
   const dynamicSizes = getEffectiveSizes();
 
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+    
     fetchOrderDetails();
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [id]);
 
   const fetchOrderDetails = async () => {
@@ -53,12 +62,20 @@ const AdminOrderDetails = () => {
         .single();
         
       if (error) throw error;
-      setOrder(data);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setOrder(data);
+      }
     } catch (err: any) {
       console.error("Error detallado en AdminOrderDetails:", err);
-      alert(`Error cargando pedido: ${err.message || 'Error desconocido'}`);
+      if (isMountedRef.current) {
+        alert(`Error cargando pedido: ${err.message || 'Error desconocido'}`);
+      }
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -72,11 +89,15 @@ const AdminOrderDetails = () => {
         
       if (error) throw error;
       
-      setOrder((prev: any) => ({ ...prev, status: newStatus }));
-      toast.success('Estado actualizado correctamente', { id: loadingToast });
+      if (isMountedRef.current) {
+        setOrder((prev: any) => ({ ...prev, status: newStatus }));
+        toast.success('Estado actualizado correctamente', { id: loadingToast });
+      }
     } catch (err: any) {
       console.error("Error updating status:", err);
-      toast.error(`Error al actualizar estado: ${err.message || 'Error desconocido'}`, { id: loadingToast });
+      if (isMountedRef.current) {
+        toast.error(`Error al actualizar estado: ${err.message || 'Error desconocido'}`, { id: loadingToast });
+      }
     }
   };
 

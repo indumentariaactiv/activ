@@ -36,21 +36,23 @@ export interface GarmentData {
 
 interface GarmentFormProps {
   initialData?: GarmentData;
+  types: any[];
+  gallery: any[];
+  existingItems?: GarmentData[];
   onSave: (garment: GarmentData) => void;
   onCancel: () => void;
 }
 
-export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, onCancel }) => {
-  const [types, setTypes] = useState<any[]>([]);
-  const [gallery, setGallery] = useState<any[]>([]);
-  
+export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, gallery, existingItems = [], onSave, onCancel }) => {
   const [selectedTypeId, setSelectedTypeId] = useState(initialData?.garment_type_id || '');
   const [selectedCategory, setSelectedCategory] = useState(initialData?.category || '');
   
   const [baseColor] = useState(initialData?.base_color || '');
   const [sleeveType, setSleeveType] = useState(initialData?.sleeve_type || '');
   const [sleeveColor] = useState(initialData?.sleeve_color || '');
-  // Removed fabric, collar, armhole from Client view (Admin sets these)
+  const [collarType, setCollarType] = useState(initialData?.collar_type || '');
+  const [pockets, setPockets] = useState(initialData?.observations.includes('Con Bolsillos') ? 'Con Bolsillos' : (initialData?.observations.includes('Sin Bolsillos') ? 'Sin Bolsillos' : ''));
+  // Removed fabric, armhole from Client view (Admin sets these)
   
   const [designMode, setDesignMode] = useState<'upload' | 'gallery'>('upload');
   const [selectedDesignId, setSelectedDesignId] = useState(initialData?.design_id || '');
@@ -59,67 +61,37 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [hasPersonalization, setHasPersonalization] = useState(initialData?.has_personalization || false);
-  const [observations, setObservations] = useState(initialData?.observations || '');
+  const [observations, setObservations] = useState(() => {
+    let obs = initialData?.observations || '';
+    if (obs.startsWith('Con Bolsillos - ')) obs = obs.replace('Con Bolsillos - ', '');
+    if (obs.startsWith('Sin Bolsillos - ')) obs = obs.replace('Sin Bolsillos - ', '');
+    return obs;
+  });
   
   const [sizeGrid, setSizeGrid] = useState<SizeQuantity[]>(initialData?.sizes || []);
   const [persons, setPersons] = useState<PersonRow[]>(initialData?.persons || []);
-
-  useEffect(() => {
-    const fetchMaestros = async () => {
-      try {
-        console.log("GarmentForm - Init fetching masters...");
-        
-        // 1. Fetch Garment Types
-        const { data: gData, error: gError } = await supabase
-          .from('garment_types')
-          .select('*')
-          .order('name');
-        
-        if (gError) {
-          console.error("GarmentForm - Error fetching garment_types:", gError.message, gError.details);
-          // Don't throw, we have fallbacks below
-        }
-
-        if (gData && gData.length > 0) {
-          console.log(`GarmentForm - Loaded ${gData.length} types from DB.`);
-          setTypes(gData);
-        } else {
-          console.warn("GarmentForm - No types found in DB or access denied. Using industrial fallbacks.");
-          setTypes([
-            { id: '00000000-0000-0000-0000-000000000001', name: 'Remera Deportiva', categories: { 'Hombre': ['S', 'M', 'L', 'XL', 'XXL'], 'Mujer': ['XS', 'S', 'M', 'L', 'XL'], 'Niño': ['8', '10', '12', '14', '16'] } },
-            { id: '00000000-0000-0000-0000-000000000002', name: 'Short', categories: { 'Hombre': ['S', 'M', 'L', 'XL'], 'Mujer': ['XS','S', 'M', 'L'], 'Niño': ['10', '12', '14'] } },
-            { id: '00000000-0000-0000-0000-000000000003', name: 'Pantalón Largo', categories: { 'Hombre': ['S', 'M', 'L', 'XL'], 'Mujer': ['S', 'M', 'L'], 'Niño': ['10', '12', '14'] } }
-          ]);
-        }
-
-        // 2. Fetch Designs Gallery
-        const { data: dData, error: dError } = await supabase
-          .from('designs')
-          .select('*')
-          .eq('active', true);
-          
-        if (dError) {
-          console.error("GarmentForm - Error fetching designs catalog:", dError.message);
-        }
-        
-        if (dData) {
-          console.log(`GarmentForm - Loaded ${dData.length} designs.`);
-          setGallery(dData);
-        }
-      } catch (err: any) {
-        console.error("GarmentForm - Unexpected execution error:", err.message || err);
-      }
-    };
-    
-    fetchMaestros();
-  }, []);
+  const [singleQuantity, setSingleQuantity] = useState<number>(initialData?.sizes?.[0]?.quantity || 0);
+  const [fabricType, setFabricType] = useState(initialData?.fabric_type || '');
+  const [sameFabric, setSameFabric] = useState(false);
+  const [selectedExistingFabric, setSelectedExistingFabric] = useState('');
 
   // When type or category changes, reset grids if no initial data
   useEffect(() => {
     if (!initialData && selectedTypeId && selectedCategory) {
       const typeObj = types.find(t => t.id === selectedTypeId);
-      if (typeObj && typeObj.categories[selectedCategory]) {
-        const availableSizes = typeObj.categories[selectedCategory] as string[];
+      if (!typeObj) return;
+
+      const availableSizes = typeObj.categories[selectedCategory] as string[];
+      const typeName = typeObj.name.toLowerCase();
+      const noSizeMode = ['bandera', 'bolso', 'botinero'].some(keyword => typeName.includes(keyword));
+
+      if (noSizeMode) {
+        setSizeGrid([]);
+        setSingleQuantity(0);
+        return;
+      }
+
+      if (availableSizes) {
         setSizeGrid(availableSizes.map(s => ({ size: s, quantity: 0 })));
       }
     }
@@ -130,8 +102,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
     if (!file) return;
     
     setUploading(true);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+    const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+    const cleanName = Math.random().toString(36).substring(2, 10);
+    const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
     const filePath = `uploads/${fileName}`;
 
     try {
@@ -154,7 +127,25 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
 
   const currentTypeObj = types.find(t => t.id === selectedTypeId);
   const availableSizesForCategory = currentTypeObj && selectedCategory ? (currentTypeObj.categories[selectedCategory] as string[]) : [];
-  const isShorts = currentTypeObj?.name.toLowerCase().includes('pantalon') || currentTypeObj?.name.toLowerCase().includes('pantalón');
+  const productName = currentTypeObj?.name.toLowerCase() || '';
+  const isRemera = productName.includes('remera');
+  const isShorts = productName.includes('short');
+  const isMusculosa = productName.includes('musculosa');
+  const isCampera = productName.includes('campera');
+  const isBuzo = productName.includes('buzo');
+  const isBandera = productName.includes('bandera');
+  const isBolsoDeportivo = productName.includes('bolso deportivo');
+  const isBolsoPaletero = productName.includes('bolso paletero');
+  const isBotinero = productName.includes('botinero');
+  const isBolso = isBolsoDeportivo || isBolsoPaletero || isBotinero;
+  const noSizesMode = isBandera || isBolso;
+  const needsFabric = !isBandera && !isBolso;
+
+  const existingFabricTypes = Array.from(
+    new Set((existingItems || [])
+      .map(item => item.fabric_type || '')
+      .filter(Boolean))
+  );
 
   const [newPersonSize, setNewPersonSize] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
@@ -193,6 +184,27 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validación: verificar que hay talles/cantidad seleccionados
+    if (!hasPersonalization && !noSizesMode) {
+      const hasSizes = sizeGrid.some(sg => sg.quantity > 0);
+      if (!hasSizes) {
+        alert('Por favor, selecciona al menos un talle con cantidad mayor a 0');
+        return;
+      }
+    } else if (hasPersonalization && persons.length === 0) {
+      alert('Por favor, agrega al menos una prenda a la lista de personalizados');
+      return;
+    }
+
+    const selectedFabricType = needsFabric ? (sameFabric ? (selectedExistingFabric || fabricType) : fabricType) : '';
+    const finalObservations = (isShorts && pockets) ? `${pockets} - ${observations}` : observations;
+    const finalSizes = hasPersonalization
+      ? []
+      : noSizesMode
+        ? [{ size: 'Cantidad', quantity: singleQuantity }]
+        : sizeGrid;
+
     onSave({
       id: initialData?.id || Date.now().toString(),
       garment_type_id: selectedTypeId,
@@ -201,17 +213,17 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
       base_color: baseColor,
       sleeve_type: sleeveType,
       sleeve_color: sleeveColor,
+      collar_type: (isRemera || isCampera || isBuzo || isBandera) ? collarType : undefined,
+      fabric_type: selectedFabricType,
       has_personalization: hasPersonalization,
       design_id: designMode === 'gallery' ? selectedDesignId : undefined,
       design_image_url: designMode === 'gallery' ? gallery.find(d => d.id === selectedDesignId)?.image_url : undefined,
       custom_design_url: designMode === 'upload' ? customDesignUrl : undefined,
-      observations,
-      sizes: hasPersonalization ? [] : sizeGrid,
+      observations: finalObservations,
+      sizes: finalSizes,
       persons: hasPersonalization ? persons : []
     });
   };
-
-  const isRemera = currentTypeObj && currentTypeObj.name.toLowerCase().includes('remera');
 
   return (
     <div className="card p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 border-2 border-[var(--color-primary)]/20 shadow-lg relative">
@@ -227,7 +239,18 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
             <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Prenda</label>
             <select className="input-field" required value={selectedTypeId} onChange={e => { setSelectedTypeId(e.target.value); setSelectedCategory(''); }}>
               <option value="" disabled>Seleccione prenda...</option>
-              {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {/* Prendas principales */}
+              <optgroup label="Prendas">
+                {types.filter(t => !['Bandera', 'Bolso Deportivo', 'Bolso Paletero', 'Botinero'].includes(t.name)).map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </optgroup>
+              {/* Otros */}
+              <optgroup label="Otros">
+                {types.filter(t => ['Bandera', 'Bolso Deportivo', 'Bolso Paletero', 'Botinero'].includes(t.name)).map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -249,16 +272,124 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
         </div>
         */}
 
+        {/* Fabric / Material Selection - aparece para todas las prendas que necesitan tela */}
+        {selectedTypeId && needsFabric && (
+          <div className="flex flex-col gap-3 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            {existingItems.length > 0 && existingFabricTypes.length > 0 ? (
+              <>
+                <div>
+                  <p className="font-bold">¿Esta prenda usa la misma tela que otra ya cargada?</p>
+                  <p className="text-xs text-[var(--color-on-surface-variant)]">Si es la misma tela, mantenemos el mismo material en el pedido.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {['No', 'Sí'].map(option => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        setSameFabric(option === 'Sí');
+                        if (option !== 'Sí') {
+                          setSelectedExistingFabric('');
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${sameFabric === (option === 'Sí') ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)] shadow-sm' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)] opacity-70'}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                {sameFabric && existingFabricTypes.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Seleccionar tela existente</label>
+                    <select className="input-field" value={selectedExistingFabric} onChange={e => setSelectedExistingFabric(e.target.value)}>
+                      <option value="" disabled>Elegí tela...</option>
+                      {existingFabricTypes.map(fabric => (
+                        <option key={fabric} value={fabric}>{fabric}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {(!sameFabric || existingFabricTypes.length === 0) && (
+                  <div className="flex flex-col gap-2">
+                    <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Nombre de tela / Material</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={fabricType}
+                      onChange={e => setFabricType(e.target.value)}
+                      placeholder="Ej: Poliester 230g"
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Nombre de tela / Material</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={fabricType}
+                  onChange={e => setFabricType(e.target.value)}
+                  placeholder="Ej: Poliester 230g"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {isRemera && (
+          <div className="flex flex-col gap-4 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <div className="flex flex-col gap-2">
+              <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Manga</label>
+              <div className="flex flex-wrap gap-2">
+                {['Manga Corta', 'Manga Larga', 'Sin Mangas'].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSleeveType(type)}
+                    className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${sleeveType === type ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)]' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)] opacity-50 grayscale hover:opacity-100 hover:grayscale-0'}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2 mt-2">
+              <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Cuello</label>
+              <div className="flex flex-wrap gap-2">
+                {['Cuello Redondo', 'Escote en V'].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setCollarType(type)}
+                    className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${collarType === type ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)] shadow-sm' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)] opacity-50 grayscale hover:opacity-100 hover:grayscale-0'}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isMusculosa && (
           <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
-            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Manga</label>
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Información</label>
+            <p className="text-sm text-[var(--color-on-surface-variant)]">Musculosa sin opciones de diseño adicionales</p>
+          </div>
+        )}
+
+        {(isCampera || isBuzo) && (
+          <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Estilo de Prenda</label>
             <div className="flex flex-wrap gap-2">
-              {['Manga Corta', 'Manga Larga', 'Sin Mangas'].map(type => (
+              {(isCampera ? ['Capucha', 'Cuello Alto'] : ['Capucha', 'Cuello Redondo']).map(type => (
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setSleeveType(type)}
-                  className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${sleeveType === type ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)]' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)]'}`}
+                  onClick={() => setCollarType(type)}
+                  className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${collarType === type ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)] shadow-sm' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)] opacity-50 grayscale hover:opacity-100 hover:grayscale-0'}`}
                 >
                   {type}
                 </button>
@@ -267,39 +398,83 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
           </div>
         )}
 
+        {isShorts && (
+          <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Bolsillos</label>
+            <div className="flex flex-wrap gap-2">
+              {['Con Bolsillos', 'Sin Bolsillos'].map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setPockets(type)}
+                  className={`px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all ${pockets === type ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)]/10 text-[var(--color-primary)] shadow-sm' : 'border-[var(--color-outline-variant)]/20 hover:border-[var(--color-outline-variant)] opacity-50 grayscale hover:opacity-100 hover:grayscale-0'}`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isBandera && (
+          <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Medida</label>
+            <select className="input-field" value={collarType} onChange={e => setCollarType(e.target.value)}>
+              <option value="" disabled>Seleccione medida...</option>
+              {['1m x 1.5m', '2m x 1.5m', '3m x 1.5m', '4m x 1.5m', '5m x 1.5m'].map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {isBolso && (
+          <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Cantidad de Unidades</label>
+            <input
+              type="number"
+              min="1"
+              className="input-field text-center font-bold text-lg p-3"
+              value={singleQuantity}
+              onChange={e => setSingleQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              placeholder="1"
+            />
+          </div>
+        )}
+
         {/* Design Upload / Gallery */}
         <div className="flex flex-col gap-4 p-5 bg-[var(--color-surface-container-low)] rounded-xl border border-[var(--color-primary)]/10">
            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Diseño a usar</label>
            
-           <div className="flex gap-2 mb-2 p-1 bg-[var(--color-surface-container-high)] rounded-lg self-start">
-             <button type="button" onClick={() => setDesignMode('upload')} className={`px-4 py-1 text-xs font-bold rounded-md transition-colors ${designMode === 'upload' ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow' : 'text-[var(--color-on-surface-variant)]'}`}>Subir Archivo</button>
-             <button type="button" onClick={() => setDesignMode('gallery')} className={`px-4 py-1 text-xs font-bold rounded-md transition-colors ${designMode === 'gallery' ? 'bg-[var(--color-surface)] text-[var(--color-primary)] shadow' : 'text-[var(--color-on-surface-variant)]'}`}>Catálogo Admin</button>
+           <div className="flex bg-[var(--color-surface-container-high)] p-1 rounded-full w-max shadow-inner mb-4">
+             <button type="button" onClick={() => setDesignMode('upload')} className={`px-6 py-2 text-xs uppercase font-black tracking-widest rounded-full transition-all ${designMode === 'upload' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'}`}>Subir Archivo</button>
+             <button type="button" onClick={() => setDesignMode('gallery')} className={`px-6 py-2 text-xs uppercase font-black tracking-widest rounded-full transition-all ${designMode === 'gallery' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'}`}>Catálogo Admin</button>
            </div>
 
            {designMode === 'upload' ? (
              <div className="flex flex-col gap-3">
                 <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
                 <div className="flex flex-col md:flex-row items-center gap-3">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn bg-[var(--color-surface-container-highest)] text-sm px-4 whitespace-nowrap w-full md:w-auto">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn bg-white border-2 border-dashed border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)]/20 text-sm px-6 py-3 whitespace-nowrap w-full md:w-auto font-black shadow-sm">
                     <span className="material-symbols-outlined">{uploading ? 'hourglass_empty' : 'upload_file'}</span>
-                    {uploading ? 'Subiendo...' : 'Seleccionar PC/Móvil'}
+                    {uploading ? 'Subiendo...' : 'Subir Archivo de Prenda'}
                   </button>
                 </div>
                 
                 {customDesignUrl && (
-                  <div className="mt-2 bg-[var(--color-surface-container-lowest)] border p-2 rounded-lg flex items-center gap-4 animate-in fade-in zoom-in-95">
+                  <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-center gap-6 animate-in fade-in zoom-in-95 shadow-sm">
                     {customDesignUrl.match(/\.(jpeg|jpg|gif|png)$/i) || customDesignUrl.includes("supabase.co") ? (
-                      <img src={customDesignUrl} alt="Preview" className="w-16 aspect-[4/5] object-contain rounded bg-white shadow-sm ring-1 ring-black/5" />
+                      <img src={customDesignUrl} alt="Preview" className="w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5" />
                     ) : (
-                       <div className="w-16 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded flex items-center justify-center">
-                         <span className="material-symbols-outlined text-xl">description</span>
+                       <div className="w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner">
+                         <span className="material-symbols-outlined text-4xl">description</span>
                        </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-[var(--color-primary)] font-bold flex items-center m-0">
-                        <span className="material-symbols-outlined mr-1 text-[1rem]">check_circle</span> Diseño Listo
+                      <p className="text-sm text-[var(--color-primary)] font-black flex items-center m-0 uppercase tracking-widest">
+                        <span className="material-symbols-outlined mr-2 text-[1.2rem]">check_circle</span> Diseño Cargado
                       </p>
-                      <a href={customDesignUrl} target="_blank" rel="noreferrer" className="text-[10px] text-[var(--color-on-surface-variant)] hover:underline truncate block w-full">{customDesignUrl}</a>
+                      <p className="text-xs text-[var(--color-on-surface-variant)] mt-1">Este archivo se enviará a producción con tu pedido.</p>
                     </div>
                   </div>
                 )}
@@ -327,7 +502,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
         </div>
 
         {/* Personalization Toggle */}
-        {selectedCategory && availableSizesForCategory.length > 0 && (
+        {selectedCategory && availableSizesForCategory.length > 0 && !noSizesMode && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-4 bg-[var(--color-surface-container-low)] p-4 rounded-lg">
               <div>
@@ -391,13 +566,13 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
                     <div className="space-y-4">
                        <div>
                          <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">1. Seleccioná Talle</label>
-                         <div className="flex flex-wrap justify-center gap-2">
+                         <div className="grid grid-cols-4 sm:grid-cols-5 md:flex md:flex-wrap justify-center gap-2">
                            {availableSizesForCategory.map(s => (
                              <button
                                key={s}
                                type="button"
                                onClick={() => setNewPersonSize(s)}
-                               className={`min-w-[50px] py-2 rounded-lg border-2 font-bold transition-all text-xs ${newPersonSize === s || (!newPersonSize && s === availableSizesForCategory[0]) ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-md' : 'border-[var(--color-outline-variant)]/10 hover:border-[var(--color-primary)]/30 bg-[var(--color-surface-container-lowest)]'}`}
+                               className={`min-w-[40px] py-1.5 rounded-lg border-2 font-bold transition-all text-xs ${newPersonSize === s || (!newPersonSize && s === availableSizesForCategory[0]) ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-md' : 'border-[var(--color-outline-variant)]/10 hover:border-[var(--color-primary)]/30 bg-[var(--color-surface-container-lowest)]'}`}
                              >
                                {s}
                              </button>
@@ -442,22 +617,43 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
               </div>
             ) : (
               <div>
-                <h4 className="font-bold text-sm mb-4">Cantidades por Talle</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                  {sizeGrid.map(sg => (
-                    <div key={sg.size} className="flex flex-col items-center bg-[var(--color-surface-container-lowest)] p-3 rounded-xl border border-[var(--color-surface-container-high)] shadow-sm hover:border-[var(--color-primary)]/30 transition-all">
-                      <span className="font-headline font-extrabold text-lg bg-[var(--color-surface-container-high)] w-10 h-10 rounded-full flex items-center justify-center mb-2">{sg.size}</span>
-                      <input 
-                        type="number" 
-                        min="0"
-                        className="input-field text-center font-bold text-lg p-2 max-w-[80px]"
-                        value={sg.quantity || ''}
-                        onChange={e => handleGridChange(sg.size, parseInt(e.target.value) || 0)}
-                        placeholder="0"
-                      />
+                <h4 className="font-bold text-sm mb-4">{noSizesMode ? 'Cantidad' : 'Cantidades por Talle'}</h4>
+                {noSizesMode ? (
+                  <div className="max-w-xs bg-[var(--color-surface-container-lowest)] p-4 rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm">
+                    <label className="font-label text-xs uppercase tracking-widest text-[var(--color-on-surface-variant)] block mb-2">Unidades</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input-field text-center font-bold text-lg p-2 w-full"
+                      value={singleQuantity}
+                      onChange={e => setSingleQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="0"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-3">
+                      {sizeGrid.map(sg => (
+                        <div key={sg.size} className="flex flex-col items-center bg-[var(--color-surface-container-lowest)] py-2 px-2 rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all min-w-[60px]">
+                          <span className="font-headline font-black text-base text-[var(--color-on-surface)] mb-2 px-2 py-1 bg-gray-100 rounded-md whitespace-nowrap text-center min-w-[32px]">{sg.size}</span>
+                          <input 
+                            type="number" 
+                            min="0"
+                            className="input-field text-center font-bold text-lg p-2 w-full"
+                            value={sg.quantity || ''}
+                            onChange={e => handleGridChange(sg.size, parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                    {/* Total automático */}
+                    <div className="bg-[var(--color-primary-container)] border-2 border-[var(--color-primary)] rounded-lg p-3 flex justify-between items-center">
+                      <span className="font-bold text-[var(--color-primary)]">TOTAL PRENDAS:</span>
+                      <span className="font-headline font-black text-2xl text-[var(--color-primary)]">{sizeGrid.reduce((sum, sg) => sum + (sg.quantity || 0), 0)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -482,8 +678,8 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, onSave, o
           
           <div className="flex gap-3">
             <button type="submit" className="btn btn-primary shadow-xl" style={{ background: 'linear-gradient(135deg, #00c06a, #00a05a)' }}>
-              {initialData ? 'Guardar Cambios' : 'Terminar y Continuar'}
-              <span className="material-symbols-outlined text-sm">check_circle</span>
+              {initialData ? 'Guardar Cambios' : 'Confirmar Prenda al Pedido'}
+              <span className="material-symbols-outlined text-sm">{initialData ? 'check_circle' : 'add_task'}</span>
             </button>
           </div>
         </div>

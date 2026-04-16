@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 
 interface CategorySizes {
@@ -16,25 +16,42 @@ const AdminMasters = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingType, setEditingType] = useState<GarmentType | null>(null);
+  const isMountedRef = useRef(true);
 
   // Form State
   const [name, setName] = useState('');
   const [categories, setCategories] = useState<CategorySizes>({ 'Hombre': ['S', 'M', 'L', 'XL'], 'Mujer': ['S', 'M', 'L'], 'Niño': ['10', '12', '14'] });
 
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+    
     fetchTypes();
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const fetchTypes = async () => {
-    setLoading(true);
+    if (isMountedRef.current) {
+      setLoading(true);
+    }
     try {
       const { data, error } = await supabase.from('garment_types').select('*').order('name');
       if (error) throw error;
-      setTypes(data || []);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setTypes(data || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -6,9 +6,18 @@ const AdminDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'delivered'>('active');
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+    
     fetchGlobalOrders();
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const fetchGlobalOrders = async () => {
@@ -23,12 +32,18 @@ const AdminDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setOrders(data || []);
+      }
     } catch (err: any) {
       console.error("Error fetching admin orders:", err);
       // We don't alert here to avoid blocking, just show error in UI
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

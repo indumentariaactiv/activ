@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
@@ -11,11 +11,17 @@ const ClientOrderDetails = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isConfirming, setIsConfirming] = useState(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+
     // If auth state finished and no user, we can't fetch but shouldn't hang
     if (!globalLoading && !user) {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
       navigate('/login');
       return;
     }
@@ -23,11 +29,18 @@ const ClientOrderDetails = () => {
     if (id && user) {
       fetchOrderDetails();
     }
+
+    // Cleanup: mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [id, user, globalLoading]);
 
   const fetchOrderDetails = async () => {
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -50,20 +63,30 @@ const ClientOrderDetails = () => {
         return;
       }
       
-      setOrder(data);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setOrder(data);
+      }
     } catch (err: any) {
       console.error("Error loading order:", err);
-      toast.error("No se pudo cargar el pedido.");
+      if (isMountedRef.current) {
+        toast.error("No se pudo cargar el pedido.");
+      }
       navigate('/cliente/dashboard');
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const confirmOrder = async () => {
     if (!window.confirm("¿Seguro que quieres enviar el pedido? Una vez enviado no lo podrás editar más.")) return;
     
-    setIsConfirming(true);
+    if (isMountedRef.current) {
+      setIsConfirming(true);
+    }
     try {
       const { error } = await supabase
         .from('orders')
@@ -72,13 +95,19 @@ const ClientOrderDetails = () => {
         
       if (error) throw error;
       
-      toast.success("¡Pedido enviado correctamente!");
-      setOrder({...order, status: 'confirmed'});
+      if (isMountedRef.current) {
+        toast.success("¡Pedido enviado correctamente!");
+        setOrder({...order, status: 'confirmed'});
+      }
     } catch (err) {
       console.error(err);
-      toast.error("Error al confirmar el pedido.");
+      if (isMountedRef.current) {
+        toast.error("Error al confirmar el pedido.");
+      }
     } finally {
-      setIsConfirming(false);
+      if (isMountedRef.current) {
+        setIsConfirming(false);
+      }
     }
   };
 
