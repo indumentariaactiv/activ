@@ -5,7 +5,7 @@ import { GarmentForm } from '../../components/orders/GarmentForm';
 import type { GarmentData } from '../../components/orders/GarmentForm';
 import toast from 'react-hot-toast';
 
-const STANDARD_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+const STANDARD_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
 const KIDS_SIZES = ['4', '6', '8', '10', '12', '14', '16'];
 const UNISEX_PANTALON_SIZES = [...KIDS_SIZES, ...STANDARD_SIZES];
 
@@ -47,7 +47,6 @@ const NewOrder = () => {
   
   // Maestros globales para el formulario
   const [garmentTypes, setGarmentTypes] = useState<any[]>([]);
-  const [designsGallery, setDesignsGallery] = useState<any[]>([]);
 
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -93,19 +92,6 @@ const NewOrder = () => {
           setGarmentTypes(GARMENT_TYPE_FALLBACKS);
         }
       }
-
-      // 2. Fetch Designs Gallery
-      const { data: dData } = await supabase
-        .from('designs')
-        .select('*')
-        .eq('active', true);
-        
-      if (dData) {
-        // Only update state if component is still mounted
-        if (isMountedRef.current) {
-          setDesignsGallery(dData);
-        }
-      }
     } catch (err) {
       console.error("Error fetching masters:", err);
     }
@@ -140,7 +126,7 @@ const NewOrder = () => {
            if (isMountedRef.current) {
              toast.error(`Pedido bloqueado para edición (Estado: ${data.status})`);
            }
-           navigate(`/cliente/pedido/${id}`);
+           navigate(`/cliente/pedido/${id}`, { replace: true });
            return;
          }
 
@@ -181,7 +167,7 @@ const NewOrder = () => {
        if (isMountedRef.current) {
          toast.error("No se pudo cargar el pedido para editar.");
        }
-       navigate('/cliente/dashboard');
+       navigate('/cliente/dashboard', { replace: true });
      } finally {
        // Only update state if component is still mounted
        if (isMountedRef.current) {
@@ -335,7 +321,7 @@ const NewOrder = () => {
       }
 
       // 4. Success -> Redirect to the high-fidelity summary page
-      navigate(`/cliente/pedido/${orderData.id}`);
+      navigate(`/cliente/pedido/${orderData.id}`, { replace: true });
     } catch (error: any) {
       console.error("Error detallado al guardar:", error);
       alert(`Error al guardar: ${error.message || "Verifica la consola para más detalles."}`);
@@ -400,7 +386,6 @@ const NewOrder = () => {
               <GarmentForm 
                 initialData={editingGarment || undefined}
                 types={garmentTypes}
-                gallery={designsGallery}
                 existingItems={orderItems}
                 onSave={(data) => {
                   setOrderItems(prev => {

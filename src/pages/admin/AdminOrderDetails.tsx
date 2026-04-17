@@ -1,17 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { utils, writeFile } from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast';
-import logo from '../../assets/logo.png';
 
 const AdminOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['4', '6', '8', '10', '12', '14', '16', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
@@ -37,9 +35,10 @@ const AdminOrderDetails = () => {
     
     fetchOrderDetails();
 
-    // Cleanup: mark as unmounted
+    // Cleanup: mark as unmounted and reset updating status
     return () => {
       isMountedRef.current = false;
+      setUpdatingStatus(false);
     };
   }, [id]);
 
@@ -80,7 +79,11 @@ const AdminOrderDetails = () => {
   };
 
   const updateOrderStatus = async (newStatus: string) => {
+    if (updatingStatus) return; // Prevent multiple simultaneous updates
+    
+    setUpdatingStatus(true);
     const loadingToast = toast.loading('Actualizando estado...');
+    
     try {
       const { error } = await supabase
         .from('orders')
@@ -98,294 +101,28 @@ const AdminOrderDetails = () => {
       if (isMountedRef.current) {
         toast.error(`Error al actualizar estado: ${err.message || 'Error desconocido'}`, { id: loadingToast });
       }
+    } finally {
+      if (isMountedRef.current) {
+        setUpdatingStatus(false);
+      }
     }
+  };
+
+  const sendToProduction = async () => {
+    if (updatingStatus) return;
+    
+    // Show PDF preview modal first
+    setShowPdfPreview(true);
+  };
+
+  const confirmSendToProduction = async () => {
+    setShowPdfPreview(false);
+    await updateOrderStatus('in_production');
   };
 
   const finalizeOrder = async () => {
     if (!window.confirm("¿Seguro que deseas marcar el pedido como FINALIZADO? Esta acción indica que el pedido ya fue entregado.")) return;
     await updateOrderStatus('delivered');
-  };
-
-  const exportToExcel = () => {
-    if (!order) return;
-    const wb = utils.book_new();
-    
-    let summaryData: any[] = [];
-    const clientName = (order.profiles?.team_name || order.profiles?.name || '').toUpperCase();
-    
-    summaryData.push(['ALTIV - FICHA DE PRODUCCIÓN GLOBAL']);
-    summaryData.push(['CLIENTE:', clientName, '', 'FECHA:', new Date().toLocaleDateString(), '', 'PEDIDO:', order.name.toUpperCase()]);
-    summaryData.push([]);
-
-    const usedSizesOnly = dynamicSizes.filter(size => {
-      return order.order_items.some((item: any) => {
-        if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
-        return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
-      });
-    });
-
-    summaryData.push(['RESUMEN DE PRENDAS Y TALLES']);
-    summaryData.push(['Prenda / Categoría', ...usedSizesOnly, 'TOTAL']);
-
-    order.order_items.forEach((item: any) => {
-      let totalRow = 0;
-      const row = [`${item.garment_types?.name} ${item.category}`.toUpperCase()];
-      
-      usedSizesOnly.forEach(size => {
-        let qty = 0;
-        if (item.has_personalization) {
-          qty = item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
-        } else {
-          qty = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-        }
-        row.push(qty ? String(qty) : '');
-        totalRow += qty;
-      });
-      row.push(String(totalRow));
-      summaryData.push(row);
-    });
-
-    summaryData.push([]);
-    summaryData.push(['LISTADO DE PERSONALIZACIÓN COMPLETO']);
-    summaryData.push(['PRENDA', 'TALLE', 'NOMBRE', 'NÚMERO']);
-
-    order.order_items.filter((item: any) => item.has_personalization).forEach((item: any) => {
-      item.order_item_persons.forEach((p: any) => {
-        summaryData.push([(item.garment_types?.name || '').toUpperCase(), (item.category || '').toUpperCase(), p.size, p.person_name || '', p.person_number || 'S/N']);
-      });
-    });
-
-    const wsSummary = utils.aoa_to_sheet(summaryData);
-    utils.book_append_sheet(wb, wsSummary, "RESUMEN GENERAL");
-
-    order.order_items.forEach((item: any, idx: number) => {
-      let itemData: any[] = [];
-      itemData.push([`FICHA TÉCNICA DETALLADA: ${(item.garment_types?.name || '').toUpperCase()}`]);
-      itemData.push(['CATEGORÍA:', (item.category || '').toUpperCase()]);
-      itemData.push([]);
-      
-      itemData.push(['ESPECIFICACIONES']);
-      itemData.push(['TELA:', item.fabric_type || 'SET', 'CUELLO:', item.collar_type || 'RIBB', 'SISA:', item.armhole_color || 'AL CUELLO']);
-      itemData.push(['BASE:', item.base_color || '-', 'MANGAS:', item.sleeve_type || '-', 'COLOR MANGAS:', item.sleeve_color || '-']);
-      itemData.push([]);
-      
-      const itemSizes = dynamicSizes.filter(size => {
-        if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
-        return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
-      });
-
-      itemData.push(['DISTRIBUCIÓN DE TALLES']);
-      itemData.push(['TALLE', 'CANTIDAD']);
-      let totalQty = 0;
-      itemSizes.forEach(size => {
-        let qty = 0;
-        if (item.has_personalization) {
-          qty = item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
-        } else {
-          qty = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-        }
-        itemData.push([size, qty]);
-        totalQty += qty;
-      });
-      itemData.push(['TOTAL', totalQty]);
-      itemData.push([]);
-
-      if (item.has_personalization) {
-        itemData.push(['LISTADO DE JUGADORES (PERSONALIZADO)']);
-        itemData.push(['TALLE', 'NOMBRE', 'NÚMERO']);
-        item.order_item_persons.forEach((p: any) => {
-          itemData.push([p.size, p.person_name, p.person_number || '']);
-        });
-      }
-
-      const wsItem = utils.aoa_to_sheet(itemData);
-      utils.book_append_sheet(wb, wsItem, `PRENDA ${idx + 1}`);
-    });
-
-    writeFile(wb, `ORDEN_ALTIV_${order.name.replace(/\s+/g, '_')}.xlsx`);
-  };
-
-  const exportToPDF = async () => {
-    if (!order) return;
-    
-    // Helper to convert URL to base64
-    const getBase64ImageFromUrl = async (imageUrl: string) => {
-      try {
-        const res = await fetch(imageUrl);
-        const blob = await res.blob();
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.addEventListener("load", () => resolve(reader.result as string), false);
-          reader.addEventListener("error", () => reject(), false);
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.error("Error loading image for PDF:", e);
-        return null;
-      }
-    };
-
-    try {
-      const doc = new jsPDF('l', 'mm', 'a4'); 
-      
-      const usedSizesOnly = dynamicSizes.filter(size => {
-        return order.order_items.some((item: any) => {
-          if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
-          return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
-        });
-      });
-
-      const totalGarments = order.order_items.reduce((acc: number, item: any) => {
-        if (item.has_personalization) return acc + (item.order_item_persons?.length || 0);
-        return acc + (item.order_item_sizes?.reduce((sum: number, s: any) => sum + s.quantity, 0) || 0);
-      }, 0);
-
-      // Header Global
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.rect(14, 10, 80, 15);
-      doc.text(order.profiles?.team_name?.toUpperCase() || order.profiles?.name?.toUpperCase() || 'CLIENTE', 54, 20, { align: 'center' });
-      
-      doc.rect(94, 10, 110, 15);
-      const logoData = await getBase64ImageFromUrl(logo);
-      if (logoData) {
-        doc.addImage(logoData, 'PNG', 134, 11, 30, 13);
-      } else {
-        doc.text('ALTIV PRODUCTION SHEET', 149, 20, { align: 'center' });
-      }
-      
-      doc.rect(204, 10, 40, 15);
-      doc.setFontSize(10);
-      doc.text(new Date().toLocaleDateString(), 224, 20, { align: 'center' });
-      
-      doc.setFillColor(0, 89, 187); // ALTIV Blue
-      doc.rect(244, 10, 40, 15, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(22);
-      doc.text(String(totalGarments), 264, 21, { align: 'center' });
-      doc.setTextColor(0, 0, 0);
-
-      // Summary Table
-      const tableHead = [['Prendas / Talles', ...usedSizesOnly, 'Totales']];
-      const tableBody = order.order_items.map((item: any) => {
-        let totalRow = 0;
-        const row = [`${item.garment_types?.name || 'Prenda'} ${item.category}`.toUpperCase()];
-        usedSizesOnly.forEach(size => {
-          let qty = 0;
-          if (item.has_personalization) {
-            qty = item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
-          } else {
-            qty = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-          }
-          row.push(qty ? String(qty) : '');
-          totalRow += qty;
-        });
-        row.push(String(totalRow));
-        return row;
-      });
-
-      autoTable(doc, {
-        startY: 30,
-        head: tableHead,
-        body: tableBody,
-        theme: 'grid',
-        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1 },
-        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
-        columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 50 } }
-      });
-
-      let currentY = ((doc as any).lastAutoTable?.finalY || 40) + 15;
-
-      // Per Garment Sheets
-      for (const [idx, item] of order.order_items.entries()) {
-        if (currentY > 160) { doc.addPage('l'); currentY = 20; }
-        
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 89, 187);
-        doc.text(`item ${idx + 1}: ${item.garment_types?.name || ''} - ${item.category}`.toUpperCase(), 14, currentY);
-        doc.setTextColor(0, 0, 0);
-
-        // Details Table - NOW INCLUDES MANGAS & BASE
-        const specs = [
-          ['BASE', item.base_color || '-', 'TELA', item.fabric_type || 'SET', 'CUELLO', item.collar_type || 'RIBB'],
-          ['MANGAS', item.sleeve_type || '-', 'COLOR MANGAS', item.sleeve_color || '-', 'SISA', item.armhole_color || 'AL CUELLO']
-        ];
-        
-        autoTable(doc, {
-          startY: currentY + 2,
-          body: specs,
-          theme: 'grid',
-          tableWidth: 200, // Constrain width to avoid overlap with image on the right
-          styles: { fontSize: 8, cellPadding: 2, fontStyle: 'bold' },
-          columnStyles: { 
-            0: { fillColor: [240, 240, 240], cellWidth: 25 },
-            2: { fillColor: [240, 240, 240], cellWidth: 25 },
-            4: { fillColor: [240, 240, 240], cellWidth: 25 }
-          }
-        });
-        
-        let tableFinalY = (doc as any).lastAutoTable?.finalY || currentY;
-
-        // Image Attachment
-        if (item.custom_design_url || item.designs?.image_url) {
-          const imgData = await getBase64ImageFromUrl(item.custom_design_url || item.designs?.image_url);
-          if (imgData) {
-            // Place image to the right of the specs or below if too large
-            try {
-              doc.addImage(imgData, 'JPEG', 215, currentY - 5, 40, 50);
-              doc.setFontSize(7);
-              doc.text("DISEÑO ADJUNTO", 235, currentY + 47, { align: 'center' });
-            } catch (e) {
-              console.warn("Failed to add image to PDF:", e);
-            }
-          }
-        }
-
-        currentY = tableFinalY + 5;
-
-        // Sizes/Persons List
-        if (item.has_personalization && item.order_item_persons?.length > 0) {
-          const personsData = item.order_item_persons.map((p: any) => [p.size, p.person_name, p.person_number || '']);
-          autoTable(doc, {
-            startY: currentY,
-            head: [['Talle', 'Nombre', 'Número']],
-            body: personsData,
-            theme: 'striped',
-            margin: { right: 100 }, // Space for image
-            styles: { fontSize: 7 }
-          });
-          currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 15;
-        } else {
-          // Summary of sizes for non-personalized
-          const itemSizes = dynamicSizes.filter(size => item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0));
-          const sizeRowHead = ['Talle', ...itemSizes];
-          const sizeRowData = ['Cant.', ...itemSizes.map(size => String(item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0))];
-
-          autoTable(doc, {
-            startY: currentY,
-            head: [sizeRowHead],
-            body: [sizeRowData],
-            theme: 'grid',
-            margin: { right: 100 },
-            styles: { fontSize: 7, halign: 'center' },
-            columnStyles: { 0: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
-          });
-          currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 15;
-        }
-
-        if (item.notes) {
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.text(`NOTAS: ${item.notes}`, 14, currentY - 10);
-        }
-      }
-
-      doc.save(`PRODUCCION_ALTIV_${order.name.replace(/\s+/g, '_')}.pdf`);
-    } catch (err) {
-      console.error("PDF Export Error:", err);
-      alert("Error al generar el PDF. Revisa la consola.");
-    }
   };
 
   const updateItemSpec = async (itemId: string, field: string, value: string) => {
@@ -403,11 +140,6 @@ const AdminOrderDetails = () => {
           item.id === itemId ? { ...item, [field]: value } : item
         )
       }));
-
-      // AUTOMATION: If status is 'confirmed', move to 'in_production'
-      if (order?.status === 'confirmed') {
-        await updateOrderStatus('in_production');
-      }
     } catch (err) {
       console.error(err);
       alert('Error al actualizar ficha técnica');
@@ -417,38 +149,72 @@ const AdminOrderDetails = () => {
   if (loading) return <div className="p-12 text-center animate-pulse font-headline">Cargando pedido...</div>;
   if (!order) return <div className="p-12 text-center">Pedido no encontrado.</div>;
 
+  const totalQuantity = order.order_items.reduce((sum: number, item: any) => {
+    if (item.has_personalization) return sum + (item.order_item_persons?.length || 0);
+    return sum + (item.order_item_sizes?.reduce((sub: number, s: any) => sub + (s.quantity || 0), 0) || 0);
+  }, 0);
+
   return (
     <div className="max-w-[95%] mx-auto pb-[100px]">
       <div className="mb-6">
-        <button onClick={() => navigate(-1)} className="text-[var(--color-primary)] text-sm font-bold flex items-center hover:underline">
+        <button onClick={() => navigate('/admin/dashboard', { replace: true })} className="text-[var(--color-primary)] text-sm font-bold flex items-center hover:underline">
           <span className="material-symbols-outlined text-sm mr-1">arrow_back</span>
           Volver al Panel
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)] mb-2 block">Módulo de Producción Alta Gama</span>
-          <h1 className="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[var(--color-on-surface)] leading-none">
-            {order.name}
-          </h1>
-          <p className="text-xl text-[var(--color-on-surface-variant)] mt-2 font-medium">Cliente: <span className="text-[var(--color-on-surface)]">{order.profiles?.team_name || order.profiles?.name}</span></p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {order.status !== 'delivered' && (
-            <button onClick={finalizeOrder} className="btn bg-[#e8f5e9] text-[#2e7d32] border-[#a5d6a7] border text-xs px-4 py-2 hover:bg-[#2e7d32] hover:text-white transition-all">
-                <span className="material-symbols-outlined text-sm">check_circle</span>
-                Finalizar Pedido
-            </button>
-          )}
-          <button onClick={exportToExcel} className="btn btn-secondary text-xs px-4 py-2">
-            <span className="material-symbols-outlined text-sm">table_view</span>
-            Excel
-          </button>
-          <button onClick={exportToPDF} className="btn btn-primary text-xs px-4 py-2">
-            <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
-            PDF
-          </button>
+      <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm bg-white">
+        <div className="flex flex-col lg:flex-row justify-between gap-6">
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Ficha de Producción</p>
+            <h1 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-on-surface)]">{order.name}</h1>
+            <div className="grid gap-3 sm:grid-cols-2 text-sm text-[var(--color-on-surface-variant)]">
+              <div><span className="font-bold text-[var(--color-on-surface)]">Cliente:</span> {order.profiles?.team_name || order.profiles?.name}</div>
+              <div><span className="font-bold text-[var(--color-on-surface)]">Fecha:</span> {new Date(order.created_at).toLocaleDateString()}</div>
+              <div><span className="font-bold text-[var(--color-on-surface)]">Estado:</span> {order.status === 'confirmed' ? 'Recibido' : order.status === 'in_production' ? 'En producción' : order.status === 'delivered' ? 'Finalizado' : order.status}</div>
+              <div><span className="font-bold text-[var(--color-on-surface)]">Total prendas:</span> {totalQuantity}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:items-end">
+            <div className="inline-flex items-center rounded-full bg-[var(--color-primary-container)] px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-[var(--color-primary)]">
+              {order.status === 'confirmed' ? 'Recibido' : order.status === 'in_production' ? 'En producción' : order.status === 'delivered' ? 'Finalizado' : order.status}
+            </div>
+            <div className="flex flex-wrap gap-3 justify-end">
+              {order.status === 'confirmed' && (
+                <button 
+                  onClick={sendToProduction} 
+                  disabled={updatingStatus}
+                  className={`btn text-xs px-4 py-2 transition-all ${
+                    updatingStatus 
+                      ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed' 
+                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-700 hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {updatingStatus ? 'hourglass_empty' : 'factory'}
+                  </span>
+                  {updatingStatus ? 'Enviando...' : 'Enviar a Fábrica'}
+                </button>
+              )}
+              {order.status === 'in_production' && (
+                <button 
+                  onClick={finalizeOrder} 
+                  disabled={updatingStatus}
+                  className={`btn text-xs px-4 py-2 transition-all ${
+                    updatingStatus 
+                      ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed' 
+                      : 'bg-[#e8f5e9] text-[#2e7d32] border-[#a5d6a7] border hover:bg-[#2e7d32] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {updatingStatus ? 'hourglass_empty' : 'check_circle'}
+                  </span>
+                  {updatingStatus ? 'Finalizando...' : 'Finalizar Pedido'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -457,7 +223,7 @@ const AdminOrderDetails = () => {
         <div className="flex w-full">
             {[
                 { key: 'confirmed', label: '1. RECIBIDO', icon: 'inbox' },
-                { key: 'in_production', label: '2. PRODUCCIÓN', icon: 'settings' },
+                { key: 'in_production', label: '2. EN FÁBRICA', icon: 'factory' },
                 { key: 'delivered', label: '3. FINALIZADO', icon: 'verified' }
             ].map((phase, i, arr) => {
                 const isPast = arr.findIndex(a => a.key === order.status) >= i;
@@ -731,6 +497,113 @@ const AdminOrderDetails = () => {
           );
         })}
       </div>
+
+      {/* PDF Preview Modal */}
+      {showPdfPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Vista Previa - Ficha de Producción</h2>
+              <button 
+                onClick={() => setShowPdfPreview(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-auto">
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <p className="text-sm text-gray-600 mb-4">
+                  Esta es la ficha de producción que se enviará a la fábrica. Revisa que toda la información sea correcta.
+                </p>
+                
+                {/* PDF Preview Content - Simplified version */}
+                <div className="bg-white p-6 rounded border shadow-sm">
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900">ALTIV - FICHA DE PRODUCCIÓN</h3>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Cliente: {order.profiles?.team_name || order.profiles?.name} | 
+                      Fecha: {new Date().toLocaleDateString()} | 
+                      Pedido: {order.name}
+                    </p>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <h4 className="font-bold text-gray-900 mb-3">RESUMEN DE PRENDAS Y TALLES</h4>
+                    <table className="w-full border-collapse border border-gray-300 text-xs">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 p-2 text-left">Prenda / Categoría</th>
+                          {dynamicSizes.filter(size => 
+                            order.order_items.some((item: any) =>
+                              item.has_personalization
+                                ? item.order_item_persons?.some((p: any) => p.size === size)
+                                : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
+                            )
+                          ).map(size => (
+                            <th key={size} className="border border-gray-300 p-2 text-center">{size}</th>
+                          ))}
+                          <th className="border border-gray-300 p-2 text-center">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.order_items.map((item: any) => {
+                          const sizesRow = dynamicSizes.filter(size => 
+                            order.order_items.some((item: any) =>
+                              item.has_personalization
+                                ? item.order_item_persons?.some((p: any) => p.size === size)
+                                : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
+                            )
+                          ).map((size: string) => {
+                            const qty = item.has_personalization
+                              ? item.order_item_persons?.filter((p: any) => p.size === size).length || 0
+                              : item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
+                            return qty;
+                          });
+                          const rowTotal = sizesRow.reduce((sum: number, value: number) => sum + value, 0);
+                          return (
+                            <tr key={item.id}>
+                              <td className="border border-gray-300 p-2 font-medium">
+                                {item.garment_types?.name} {item.category}
+                              </td>
+                              {sizesRow.map((qty: number, idx: number) => (
+                                <td key={idx} className="border border-gray-300 p-2 text-center">{qty || '-'}</td>
+                              ))}
+                              <td className="border border-gray-300 p-2 text-center font-bold">{rowTotal}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="text-xs text-gray-500 mt-4">
+                    <p><strong>Total de prendas:</strong> {totalQuantity}</p>
+                    <p className="mt-2">Esta ficha incluye toda la información técnica necesaria para la producción.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button 
+                onClick={() => setShowPdfPreview(false)}
+                className="btn btn-secondary px-6 py-2"
+              >
+                Revisar Después
+              </button>
+              <button 
+                onClick={confirmSendToProduction}
+                disabled={updatingStatus}
+                className="btn btn-primary px-6 py-2 disabled:opacity-50"
+              >
+                {updatingStatus ? 'Enviando...' : 'Confirmar y Enviar a Fábrica'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

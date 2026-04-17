@@ -33,8 +33,6 @@ const AppLayout = () => {
   const navItems = profile?.role === 'admin' 
     ? [
         { path: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
-        { path: '/admin/maestros', icon: 'settings', label: 'Maestros' },
-        { path: '/admin/catalog', icon: 'style', label: 'Catálogo' },
       ]
     : [
         { path: '/cliente/dashboard', icon: 'dashboard', label: 'Dashboard' },

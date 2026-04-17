@@ -146,79 +146,81 @@ const ClientDashboard = () => {
       ) : (
         <div className="flex flex-col gap-6">
           {/* Tabs for Order Categorization */}
-          <div className="flex flex-wrap gap-2 md:gap-4 border-b border-[var(--color-outline-variant)]/20 pb-2">
+          <div className="flex flex-wrap gap-3 md:gap-4 bg-[var(--color-surface-container-low)] rounded-full p-2">
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-4 py-2 font-bold text-sm uppercase tracking-wide border-b-2 transition-colors ${
+              className={`rounded-full px-5 py-2 text-sm font-bold uppercase tracking-wide transition-all ${
                 activeTab === 'pending'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'bg-white text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-variant)]'
               }`}
             >
               Borradores y Pendientes
             </button>
             <button
               onClick={() => setActiveTab('production')}
-              className={`px-4 py-2 font-bold text-sm uppercase tracking-wide border-b-2 transition-colors ${
+              className={`rounded-full px-5 py-2 text-sm font-bold uppercase tracking-wide transition-all ${
                 activeTab === 'production'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'bg-white text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-variant)]'
               }`}
             >
               En Producción
             </button>
             <button
               onClick={() => setActiveTab('delivered')}
-              className={`px-4 py-2 font-bold text-sm uppercase tracking-wide border-b-2 transition-colors ${
+              className={`rounded-full px-5 py-2 text-sm font-bold uppercase tracking-wide transition-all ${
                 activeTab === 'delivered'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'
+                  ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                  : 'bg-white text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-variant)]'
               }`}
             >
-              Historial (Entregados)
+              Historial
             </button>
           </div>
 
           {filteredOrders.length === 0 ? (
-            <div className="text-center py-12 bg-[var(--color-surface-container-low)] rounded-2xl border border-dashed border-[var(--color-outline-variant)]">
+            <div className="rounded-3xl border border-dashed border-[var(--color-outline-variant)]/30 bg-[var(--color-surface-container-low)] p-10 text-center">
                <span className="material-symbols-outlined text-4xl text-[var(--color-outline-variant)] mb-2">inbox</span>
                <p className="font-bold text-[var(--color-on-surface-variant)]">No hay pedidos en esta sección.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {filteredOrders.map(order => (
-                <div key={order.id} className="card p-4 md:p-6 flex flex-row items-center justify-between hover:shadow-md transition-all border-l-4" style={{ 
+                <div key={order.id} className="rounded-[32px] border border-[var(--color-outline-variant)]/20 bg-white p-5 md:p-6 shadow-sm transition hover:shadow-md" style={{ 
+                  borderLeftWidth: '6px',
                   borderLeftColor: order.status === 'confirmed' ? '#00c06a' : 
                                   order.status === 'in_production' ? 'var(--color-primary)' : 
                                   'var(--color-outline-variant)' 
                 }}>
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      {getStatusChip(order.status)}
-                      <span className="text-[10px] text-[var(--color-on-surface-variant)] uppercase font-bold">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </span>
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex flex-wrap items-center gap-3 mb-3">
+                        {getStatusChip(order.status)}
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-[var(--color-on-surface-variant)]">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h3 className="font-headline text-xl font-bold truncate">{order.name}</h3>
+                      <p className="mt-2 text-sm text-[var(--color-on-surface-variant)]">
+                        {order.order_items?.length || 0} prendas configuradas
+                      </p>
                     </div>
-                    <h3 className="font-headline text-lg md:text-xl font-bold truncate">{order.name}</h3>
-                    <p className="text-[var(--color-on-surface-variant)] text-xs md:text-sm">
-                      {order.order_items?.length || 0} prendas configuradas
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                    <Link to={order.status === 'draft' ? `/cliente/pedido/${order.id}/editar` : `/cliente/pedido/${order.id}`} className="btn px-3 py-1.5 md:px-4 text-xs bg-[var(--color-surface-container-highest)] text-[var(--color-primary)] font-bold">
-                      {order.status === 'draft' ? 'Continuar' : 'Ver'}
-                    </Link>
-                    
-                    {['draft', 'confirmed', 'recibido'].includes((order.status || '').toLowerCase().trim()) && (
-                      <button 
-                        onClick={() => deleteOrder(order.id)}
-                        className="p-2 text-[var(--color-error)] hover:bg-[var(--color-error-container)] rounded-full transition-colors"
-                        title="Eliminar pedido"
-                      >
-                        <span className="material-symbols-outlined text-lg">delete</span>
-                      </button>
-                    )}
+
+                    <div className="flex flex-col gap-3 items-start md:items-end">
+                      <Link to={order.status === 'draft' ? `/cliente/pedido/${order.id}/editar` : `/cliente/pedido/${order.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-outline-variant)]/50 bg-[var(--color-surface-container-highest)] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--color-primary)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white">
+                        {order.status === 'draft' ? 'Continuar' : 'Ver'}
+                      </Link>
+                      {['draft', 'confirmed', 'recibido'].includes((order.status || '').toLowerCase().trim()) && (
+                        <button 
+                          onClick={() => deleteOrder(order.id)}
+                          className="inline-flex items-center justify-center rounded-full p-2 text-[var(--color-error)] hover:bg-[var(--color-error-container)] transition-colors"
+                          title="Eliminar pedido"
+                        >
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

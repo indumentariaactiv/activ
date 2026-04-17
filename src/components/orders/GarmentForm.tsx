@@ -37,13 +37,12 @@ export interface GarmentData {
 interface GarmentFormProps {
   initialData?: GarmentData;
   types: any[];
-  gallery: any[];
   existingItems?: GarmentData[];
   onSave: (garment: GarmentData) => void;
   onCancel: () => void;
 }
 
-export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, gallery, existingItems = [], onSave, onCancel }) => {
+export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, existingItems = [], onSave, onCancel }) => {
   const [selectedTypeId, setSelectedTypeId] = useState(initialData?.garment_type_id || '');
   const [selectedCategory, setSelectedCategory] = useState(initialData?.category || '');
   
@@ -54,8 +53,6 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, ga
   const [pockets, setPockets] = useState(initialData?.observations.includes('Con Bolsillos') ? 'Con Bolsillos' : (initialData?.observations.includes('Sin Bolsillos') ? 'Sin Bolsillos' : ''));
   // Removed fabric, armhole from Client view (Admin sets these)
   
-  const [designMode, setDesignMode] = useState<'upload' | 'gallery'>('upload');
-  const [selectedDesignId, setSelectedDesignId] = useState(initialData?.design_id || '');
   const [customDesignUrl, setCustomDesignUrl] = useState(initialData?.custom_design_url || '');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -216,9 +213,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, ga
       collar_type: (isRemera || isCampera || isBuzo || isBandera) ? collarType : undefined,
       fabric_type: selectedFabricType,
       has_personalization: hasPersonalization,
-      design_id: designMode === 'gallery' ? selectedDesignId : undefined,
-      design_image_url: designMode === 'gallery' ? gallery.find(d => d.id === selectedDesignId)?.image_url : undefined,
-      custom_design_url: designMode === 'upload' ? customDesignUrl : undefined,
+      design_id: undefined,
+      design_image_url: undefined,
+      custom_design_url: customDesignUrl,
       observations: finalObservations,
       sizes: finalSizes,
       persons: hasPersonalization ? persons : []
@@ -442,63 +439,37 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, ga
           </div>
         )}
 
-        {/* Design Upload / Gallery */}
+        {/* Design Upload */}
         <div className="flex flex-col gap-4 p-5 bg-[var(--color-surface-container-low)] rounded-xl border border-[var(--color-primary)]/10">
            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Diseño a usar</label>
            
-           <div className="flex bg-[var(--color-surface-container-high)] p-1 rounded-full w-max shadow-inner mb-4">
-             <button type="button" onClick={() => setDesignMode('upload')} className={`px-6 py-2 text-xs uppercase font-black tracking-widest rounded-full transition-all ${designMode === 'upload' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'}`}>Subir Archivo</button>
-             <button type="button" onClick={() => setDesignMode('gallery')} className={`px-6 py-2 text-xs uppercase font-black tracking-widest rounded-full transition-all ${designMode === 'gallery' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'}`}>Catálogo Admin</button>
-           </div>
-
-           {designMode === 'upload' ? (
-             <div className="flex flex-col gap-3">
-                <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-                <div className="flex flex-col md:flex-row items-center gap-3">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn bg-white border-2 border-dashed border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)]/20 text-sm px-6 py-3 whitespace-nowrap w-full md:w-auto font-black shadow-sm">
-                    <span className="material-symbols-outlined">{uploading ? 'hourglass_empty' : 'upload_file'}</span>
-                    {uploading ? 'Subiendo...' : 'Subir Archivo de Prenda'}
-                  </button>
-                </div>
-                
-                {customDesignUrl && (
-                  <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-center gap-6 animate-in fade-in zoom-in-95 shadow-sm">
-                    {customDesignUrl.match(/\.(jpeg|jpg|gif|png)$/i) || customDesignUrl.includes("supabase.co") ? (
-                      <img src={customDesignUrl} alt="Preview" className="w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5" />
-                    ) : (
-                       <div className="w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner">
-                         <span className="material-symbols-outlined text-4xl">description</span>
-                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-primary)] font-black flex items-center m-0 uppercase tracking-widest">
-                        <span className="material-symbols-outlined mr-2 text-[1.2rem]">check_circle</span> Diseño Cargado
-                      </p>
-                      <p className="text-xs text-[var(--color-on-surface-variant)] mt-1">Este archivo se enviará a producción con tu pedido.</p>
-                    </div>
+           <div className="flex flex-col gap-3">
+              <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+              <div className="flex flex-col md:flex-row items-center gap-3">
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn bg-white border-2 border-dashed border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)]/20 text-sm px-6 py-3 whitespace-nowrap w-full md:w-auto font-black shadow-sm">
+                  <span className="material-symbols-outlined">{uploading ? 'hourglass_empty' : 'upload_file'}</span>
+                  {uploading ? 'Subiendo...' : 'Subir Archivo de Prenda'}
+                </button>
+              </div>
+              
+              {customDesignUrl && (
+                <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-center gap-6 animate-in fade-in zoom-in-95 shadow-sm">
+                  {customDesignUrl.match(/\.(jpeg|jpg|gif|png)$/i) || customDesignUrl.includes("supabase.co") ? (
+                    <img src={customDesignUrl} alt="Preview" className="w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5" />
+                  ) : (
+                     <div className="w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner">
+                       <span className="material-symbols-outlined text-4xl">description</span>
+                     </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[var(--color-primary)] font-black flex items-center m-0 uppercase tracking-widest">
+                      <span className="material-symbols-outlined mr-2 text-[1.2rem]">check_circle</span> Diseño Cargado
+                    </p>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-1">Este archivo se enviará a producción con tu pedido.</p>
                   </div>
-                )}
-             </div>
-           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-48 overflow-y-auto p-2">
-                {gallery.filter(d => d.garment_type_id === selectedTypeId).length === 0 ? (
-                  <p className="text-xs text-[var(--color-on-surface-variant)] col-span-full">
-                    {selectedTypeId ? 'No hay diseños específicos en el catálogo para esta prenda.' : 'Selecciona un tipo de prenda para ver el catálogo.'}
-                  </p>
-                ) : (
-                  gallery.filter(d => d.garment_type_id === selectedTypeId).map(d => (
-                    <div key={d.id} onClick={() => setSelectedDesignId(d.id)} className={`group cursor-pointer rounded-xl overflow-hidden border-2 transition-all ${selectedDesignId === d.id ? 'border-[var(--color-primary)] shadow-[0_0_15px_var(--color-primary-container)]' : 'border-transparent hover:border-[var(--color-outline-variant)] bg-[var(--color-surface)]'}`}>
-                      <div className="aspect-[4/5] bg-white flex items-center justify-center">
-                        <img src={d.image_url} alt={d.name} className="w-full h-full object-contain" />
-                      </div>
-                      <div className="p-1 px-2 text-center bg-[var(--color-surface-container-highest)] border-t border-[var(--color-outline-variant)]/10">
-                        <span className="text-[9px] font-black uppercase tracking-tighter block truncate">{d.name}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-             </div>
-           )}
+                </div>
+              )}
+           </div>
         </div>
 
         {/* Personalization Toggle */}

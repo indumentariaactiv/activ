@@ -24,9 +24,9 @@ const Login = () => {
     if (profile) {
       console.log("Login - Profile detected, navigating to:", profile.role);
       if (profile.role === 'admin') {
-        navigate('/admin/dashboard');
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        navigate('/cliente/dashboard');
+        navigate('/cliente/dashboard', { replace: true });
       }
       return;
     }
@@ -35,7 +35,7 @@ const Login = () => {
     // This often happens for newly registered users where the trigger is slightly slow.
     if (user && !isGlobalLoading && !profile) {
       console.log("Login - User logged in but no profile found. Using safety fallback to client dashboard.");
-      navigate('/cliente/dashboard');
+      navigate('/cliente/dashboard', { replace: true });
     }
 
     // Fail-safe: If global loading finished and we are still here, reset local loading state

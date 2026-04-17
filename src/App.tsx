@@ -13,8 +13,6 @@ import NewOrder from './pages/client/NewOrder';
 import ClientOrderDetails from './pages/client/ClientOrderDetails';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOrderDetails from './pages/admin/AdminOrderDetails';
-import AdminMasters from './pages/admin/AdminMasters';
-import AdminCatalog from './pages/admin/AdminCatalog';
 
 function App() {
   const { setUser, setProfile, setLoading, isLoading } = useAppStore();
@@ -156,8 +154,6 @@ function App() {
           <Route element={<AuthGuard allowedRole="admin"><AppLayout /></AuthGuard>}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/pedido/:id" element={<AdminOrderDetails />} />
-            <Route path="/admin/maestros" element={<AdminMasters />} />
-            <Route path="/admin/catalog" element={<AdminCatalog />} />
           </Route>
           
           {/* Initial Redirect & Fallback */}

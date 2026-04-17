@@ -22,7 +22,7 @@ const ClientOrderDetails = () => {
       if (isMountedRef.current) {
         setLoading(false);
       }
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -59,7 +59,7 @@ const ClientOrderDetails = () => {
         
       if (error) throw error;
       if (!data) {
-        navigate('/cliente/dashboard');
+        navigate('/cliente/dashboard', { replace: true });
         return;
       }
       
@@ -72,7 +72,7 @@ const ClientOrderDetails = () => {
       if (isMountedRef.current) {
         toast.error("No se pudo cargar el pedido.");
       }
-      navigate('/cliente/dashboard');
+      navigate('/cliente/dashboard', { replace: true });
     } finally {
       // Only update state if component is still mounted
       if (isMountedRef.current) {
@@ -133,11 +133,11 @@ const ClientOrderDetails = () => {
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-primary)]">Revisión Técnica de Pedido</span>
             <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-              order.status === 'draft' ? 'bg-orange-100 text-orange-700' : 
-              order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 
+              (order.status === 'draft' || order.status === 'confirmed') ? 'bg-orange-100 text-orange-700' : 
+              order.status === 'in_production' ? 'bg-blue-100 text-blue-700' : 
               'bg-green-100 text-green-700'
             }`}>
-              {order.status === 'draft' ? 'Borrador / Pendiente' : order.status === 'confirmed' ? 'Enviado / Confirmado' : 'En Producción'}
+              {(order.status === 'draft' || order.status === 'confirmed') ? 'En Desarrollo' : order.status === 'in_production' ? 'Produciendo' : 'Finalizado'}
             </span>
           </div>
           <h1 className="font-headline text-4xl font-extrabold tracking-tight leading-none text-[var(--color-on-surface)] uppercase">{order.name}</h1>

@@ -45,7 +45,7 @@ const Register = () => {
       }
       
       // Assume success and redirect
-      navigate('/cliente/dashboard');
+      navigate('/cliente/dashboard', { replace: true });
     }
     setLoading(false);
   };
