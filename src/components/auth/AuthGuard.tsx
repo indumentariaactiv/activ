@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface AuthGuardProps {
 const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   const { user, profile, isLoading } = useAppStore();
   const location = useLocation();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   if (isLoading) {
     return (
@@ -40,8 +42,19 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   // or at least show the layout without role-specific content.
   if (user && !profile && allowedRole) {
      const logout = async () => {
-       await supabase.auth.signOut();
-       window.location.href = '/login';
+       if (isLoggingOut) return;
+       setIsLoggingOut(true);
+       
+       try {
+         await supabase.auth.signOut();
+         // Only navigate after successful logout
+         window.location.href = '/login';
+       } catch (err) {
+         console.error("Logout error:", err);
+         setIsLoggingOut(false);
+         // Show error to user
+         toast.error("No se pudo cerrar la sesión. Por favor intenta de nuevo.");
+       }
      };
 
      return (
@@ -57,13 +70,30 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
          </div>
 
          <div className="flex gap-4">
-           <button onClick={() => window.location.reload()} className="btn btn-tertiary">
+           <button 
+             onClick={() => window.location.reload()} 
+             disabled={isLoggingOut}
+             className="btn btn-tertiary disabled:opacity-50"
+           >
              <span className="material-symbols-outlined text-[1.2rem]">refresh</span>
              Reintentar
            </button>
-           <button onClick={logout} className="btn bg-[var(--color-error-container)] text-[var(--color-on-error-container)] border border-[#ffb4ab]">
-             <span className="material-symbols-outlined text-[1.2rem]">logout</span>
-             Cerrar Sesión
+           <button 
+             onClick={logout} 
+             disabled={isLoggingOut}
+             className="btn bg-[var(--color-error-container)] text-[var(--color-on-error-container)] border border-[#ffb4ab] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+           >
+             {isLoggingOut ? (
+               <>
+                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                 <span>Cerrando...</span>
+               </>
+             ) : (
+               <>
+                 <span className="material-symbols-outlined text-[1.2rem]">logout</span>
+                 <span>Cerrar Sesión</span>
+               </>
+             )}
            </button>
          </div>
        </div>

@@ -49,6 +49,12 @@ const Login = () => {
     setLoading(true);
     setError('');
     
+    const navigationTimeout = setTimeout(() => {
+      // If navigation didn't happen after 5 seconds, reset button
+      console.warn("Navigation timeout. Resetting loading state.");
+      setLoading(false);
+    }, 5000);
+    
     try {
       console.log("Login - Attempting sign in...");
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -57,6 +63,7 @@ const Login = () => {
       });
 
       if (authError) {
+        clearTimeout(navigationTimeout);
         throw authError;
       }
 
@@ -66,6 +73,7 @@ const Login = () => {
       // and then the useEffect above will redirect us.
       
     } catch (err: any) {
+      clearTimeout(navigationTimeout);
       console.error("Login - Error:", err.message);
       setError(err.message || 'Error inesperado al iniciar sesión.');
       setLoading(false);

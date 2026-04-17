@@ -18,36 +18,44 @@ const Register = () => {
     setLoading(true);
     setError('');
 
-    // Step 1: Sign up in auth.users
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
+    try {
+      // Step 1: Sign up in auth.users
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          }
         }
-      }
-    });
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Small delay just to ensure Supabase trigger creates the profile
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Update extra fields explicitly if there's team name (trigger already created the profile basic stuff)
+        if (teamName.trim().length > 0) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ team_name: teamName })
+            .eq('id', authData.user.id);
+          
+          if (updateError) {
+            console.warn("Profile update partially failed:", updateError);
+            // Don't fail completely, profile was created by trigger
+          }
+        }
+        
+        navigate('/cliente/dashboard', { replace: true });
+      }
+    } catch (err: any) {
+      console.error("Registration error:", err.message);
+      setError(err.message || 'Error al registrarse. Por favor intenta de nuevo.');
       setLoading(false);
-      return;
     }
-
-    if (authData.user) {
-      // Small delay just to ensure Supabase trigger creates the profile
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Upate extra fields explicitly if there's team name (trigger already created the profile basic stuff)
-      if (teamName.trim().length > 0) {
-        await supabase.from('profiles').update({ team_name: teamName }).eq('id', authData.user.id);
-      }
-      
-      // Assume success and redirect
-      navigate('/cliente/dashboard', { replace: true });
-    }
-    setLoading(false);
   };
 
   return (

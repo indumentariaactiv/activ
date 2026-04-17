@@ -10,6 +10,8 @@ const AdminOrderDetails = () => {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [adminComment, setAdminComment] = useState('');
+  const [uploadingDesign, setUploadingDesign] = useState(false);
   const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['4', '6', '8', '10', '12', '14', '16', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
@@ -49,6 +51,9 @@ const AdminOrderDetails = () => {
         .select(`
           id, name, status, created_at, confirmed_at, client_id,
           profiles (name, team_name),
+          client_shipping_info (full_name, phone, shipping_address, preferred_carrier, order_purpose),
+          admin_comments (comment, created_at, admin_id),
+          admin_designs (design_url, file_name, created_at),
           order_items (
             *,
             garment_types (name),
@@ -146,6 +151,76 @@ const AdminOrderDetails = () => {
     }
   };
 
+  const addAdminComment = async () => {
+    if (!adminComment.trim()) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { error } = await supabase
+        .from('admin_comments')
+        .insert({
+          order_id: id,
+          admin_id: user.id,
+          comment: adminComment.trim()
+        });
+
+      if (error) throw error;
+
+      setAdminComment('');
+      fetchOrderDetails(); // Refresh to show new comment
+      toast.success('Comentario agregado');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Error al agregar comentario');
+    }
+  };
+
+  const uploadAdminDesign = async (file: File) => {
+    setUploadingDesign(true);
+    const loadingToast = toast.loading('Subiendo diseño...');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+      const cleanName = Math.random().toString(36).substring(2, 10);
+      const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
+      const filePath = `admin_designs/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('custom_designs')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('custom_designs')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('admin_designs')
+        .insert({
+          order_id: id,
+          admin_id: user.id,
+          design_url: urlData.publicUrl,
+          file_name: file.name
+        });
+
+      if (dbError) throw dbError;
+
+      fetchOrderDetails(); // Refresh to show new design
+      toast.success('Diseño subido correctamente', { id: loadingToast });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Error al subir diseño: ${err.message}`, { id: loadingToast });
+    } finally {
+      setUploadingDesign(false);
+    }
+  };
+
   if (loading) return <div className="p-12 text-center animate-pulse font-headline">Cargando pedido...</div>;
   if (!order) return <div className="p-12 text-center">Pedido no encontrado.</div>;
 
@@ -170,9 +245,21 @@ const AdminOrderDetails = () => {
             <h1 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-on-surface)]">{order.name}</h1>
             <div className="grid gap-3 sm:grid-cols-2 text-sm text-[var(--color-on-surface-variant)]">
               <div><span className="font-bold text-[var(--color-on-surface)]">Cliente:</span> {order.profiles?.team_name || order.profiles?.name}</div>
-              <div><span className="font-bold text-[var(--color-on-surface)]">Fecha:</span> {new Date(order.created_at).toLocaleDateString()}</div>
+              <div><span className="font-bold text-[var(--color-on-surface)]">Fecha:</span> {new Date(order.created_at).toLocaleDateString('es-AR', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</div>
               <div><span className="font-bold text-[var(--color-on-surface)]">Estado:</span> {order.status === 'confirmed' ? 'Recibido' : order.status === 'in_production' ? 'En producción' : order.status === 'delivered' ? 'Finalizado' : order.status}</div>
               <div><span className="font-bold text-[var(--color-on-surface)]">Total prendas:</span> {totalQuantity}</div>
+              {order.client_shipping_info?.[0] && (
+                <>
+                  <div><span className="font-bold text-[var(--color-on-surface)]">Propósito:</span> {order.client_shipping_info[0].order_purpose}</div>
+                  <div><span className="font-bold text-[var(--color-on-surface)]">Courier:</span> {order.client_shipping_info[0].preferred_carrier}</div>
+                </>
+              )}
             </div>
           </div>
 
@@ -216,6 +303,137 @@ const AdminOrderDetails = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Client Information & Admin Tools */}
+      {order.client_shipping_info?.[0] && (
+        <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm">
+          <h2 className="font-headline text-xl font-bold mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[var(--color-primary)]">person</span>
+            Información del Cliente
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="font-bold text-[var(--color-on-surface)]">Nombre:</span>
+              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].full_name}</p>
+            </div>
+            <div>
+              <span className="font-bold text-[var(--color-on-surface)]">Teléfono:</span>
+              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].phone}</p>
+            </div>
+            <div>
+              <span className="font-bold text-[var(--color-on-surface)]">Courier:</span>
+              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].preferred_carrier}</p>
+            </div>
+            <div className="md:col-span-2">
+              <span className="font-bold text-[var(--color-on-surface)]">Dirección:</span>
+              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].shipping_address}</p>
+            </div>
+            <div>
+              <span className="font-bold text-[var(--color-on-surface)]">Propósito:</span>
+              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].order_purpose}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Tools */}
+      <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm">
+        <h2 className="font-headline text-xl font-bold mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[var(--color-primary)]">admin_panel_settings</span>
+          Herramientas de Administración
+        </h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Design Upload */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">upload_file</span>
+              Subir Diseño (si cliente no lo tiene)
+            </h3>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadAdminDesign(file);
+              }}
+              disabled={uploadingDesign}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-container)]"
+            />
+            {uploadingDesign && <p className="text-xs text-[var(--color-primary)]">Subiendo...</p>}
+          </div>
+
+          {/* Admin Comments */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">comment</span>
+              Comentarios para Producción
+            </h3>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={adminComment}
+                onChange={(e) => setAdminComment(e.target.value)}
+                placeholder="Ej: Entregar antes del 15/04"
+                className="input-field flex-1"
+                onKeyPress={(e) => e.key === 'Enter' && addAdminComment()}
+              />
+              <button
+                onClick={addAdminComment}
+                disabled={!adminComment.trim()}
+                className="btn btn-secondary px-4"
+              >
+                <span className="material-symbols-outlined">add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Display Admin Designs */}
+        {order.admin_designs && order.admin_designs.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-[var(--color-outline-variant)]/10">
+            <h4 className="font-bold text-sm mb-3">Diseños Subidos por Admin:</h4>
+            <div className="flex flex-wrap gap-4">
+              {order.admin_designs.map((design: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-3 bg-[var(--color-surface-container-low)] p-3 rounded-lg">
+                  <img src={design.design_url} alt={design.file_name} className="w-12 h-12 object-cover rounded" />
+                  <div>
+                    <p className="text-xs font-bold">{design.file_name}</p>
+                    <p className="text-xs text-[var(--color-on-surface-variant)]">
+                      {new Date(design.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <a href={design.design_url} target="_blank" rel="noreferrer" className="text-[var(--color-primary)]">
+                    <span className="material-symbols-outlined text-sm">visibility</span>
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Display Admin Comments */}
+        {order.admin_comments && order.admin_comments.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-[var(--color-outline-variant)]/10">
+            <h4 className="font-bold text-sm mb-3">Comentarios para Producción:</h4>
+            <div className="space-y-3">
+              {order.admin_comments.map((comment: any, idx: number) => (
+                <div key={idx} className="bg-[var(--color-surface-container-low)] p-3 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-bold text-[var(--color-primary)]">
+                      {comment.profiles?.name || 'Admin'}
+                    </span>
+                    <span className="text-xs text-[var(--color-on-surface-variant)]">
+                      {new Date(comment.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-sm">{comment.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Timeline Tracker */}
@@ -271,22 +489,24 @@ const AdminOrderDetails = () => {
                 <h4 className="font-headline text-sm font-black uppercase tracking-widest text-[var(--color-primary)]">Ficha Técnica de Producción</h4>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo de Tela</label>
-                  <select 
-                    className="input-field py-1.5 text-xs font-bold" 
-                    value={item.fabric_type || ''} 
-                    onChange={(e) => updateItemSpec(item.id, 'fabric_type', e.target.value)}
-                  >
-                    <option value="">Seleccionar tela...</option>
-                    <option value="Microfibra Deportiva">Microfibra Deportiva</option>
-                    <option value="Set de Poliéster">Set de Poliéster</option>
-                    <option value="Algodón Premium">Algodón Premium</option>
-                    <option value="DryFit Honeycomb">DryFit Honeycomb</option>
-                    <option value="Polisap">Polisap</option>
-                  </select>
-                </div>
+              <div className={`grid grid-cols-1 md:grid-cols-2 ${isRemera ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
+                {(isRemera || item.garment_types?.name.toLowerCase().includes('short')) && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo de Tela</label>
+                    <select 
+                      className="input-field py-1.5 text-xs font-bold" 
+                      value={item.fabric_type || ''} 
+                      onChange={(e) => updateItemSpec(item.id, 'fabric_type', e.target.value)}
+                    >
+                      <option value="">Seleccionar tela...</option>
+                      <option value="Microfibra Deportiva">Microfibra Deportiva</option>
+                      <option value="Set de Poliéster">Set de Poliéster</option>
+                      <option value="Algodón Premium">Algodón Premium</option>
+                      <option value="DryFit Honeycomb">DryFit Honeycomb</option>
+                      <option value="Polisap">Polisap</option>
+                    </select>
+                  </div>
+                )}
                 
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo de Cuello</label>

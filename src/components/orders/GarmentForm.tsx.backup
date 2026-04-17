@@ -43,7 +43,7 @@ interface GarmentFormProps {
   onCancel: () => void;
 }
 
-export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, onSave, onCancel }) => {
+export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, existingItems = [], onSave, onCancel }) => {
   const [selectedTypeId, setSelectedTypeId] = useState(initialData?.garment_type_id || '');
   const [selectedCategory, setSelectedCategory] = useState(initialData?.category || '');
   
@@ -98,8 +98,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
     
     setUploading(true);
     const loadingToast = toast.loading('Subiendo archivo...');
-    const rawExt = file.name.split('.').pop() || 'jpg';
-    const fileExt = rawExt.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+    const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
     const cleanName = Math.random().toString(36).substring(2, 10);
     const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
     const filePath = `uploads/${fileName}`;
@@ -137,6 +136,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
   const isBotinero = productName.includes('botinero');
   const isBolso = isBolsoDeportivo || isBolsoPaletero || isBotinero;
   const noSizesMode = isBandera || isBolso;
+  const needsFabric = !isBandera && !isBolso;
 
   const [newPersonSize, setNewPersonSize] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
@@ -255,7 +255,6 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
               </select>
             </div>
           )}
-        </div>
 
         {/* Technical Attributes - HIDDEN FOR CLIENT per request */}
         {/*
@@ -572,7 +571,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* Excepciones General */}
         <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-[var(--color-outline-variant)]/20">

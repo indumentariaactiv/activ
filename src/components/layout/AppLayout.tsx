@@ -1,32 +1,33 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
 
 const AppLayout = () => {
   const { profile } = useAppStore();
   const location = useLocation();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent duplicate clicks
+    
     try {
+      setIsLoggingOut(true);
       console.log("Logout - Initiating hard sign out...");
-      // 1. Clear store immediately
       const store = useAppStore.getState();
       store.setUser(null);
       store.setProfile(null);
       
-      // 2. Sign out from Supabase (async)
       await supabase.auth.signOut().catch(console.error);
-      
-      // 3. Clear storage to prevent sticky sessions
       localStorage.clear(); 
       sessionStorage.clear();
-      
-      // 4. Force a hard refresh/replace to the login page
       window.location.replace('/login');
     } catch (err) {
       console.error("Logout failed:", err);
-      window.location.href = '/login';
+      setIsLoggingOut(false); // Reset state on error
+      toast.error("Error al cerrar sesión. Intenta de nuevo.");
     }
   };
 
@@ -74,11 +75,21 @@ const AppLayout = () => {
             <span className="border border-[var(--color-primary)] text-[var(--color-primary)] bg-white text-[10px] uppercase font-bold px-2 py-0.5 rounded hidden sm:inline-block shadow-sm">Admin View</span>
           )}
           <button 
-            onClick={handleLogout} 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white transition-all shadow-sm font-bold text-xs"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white transition-all shadow-sm font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-lg">logout</span>
-            <span className="hidden sm:inline">Salir</span>
+            {isLoggingOut ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                <span className="hidden sm:inline">Saliendo...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">logout</span>
+                <span className="hidden sm:inline">Salir</span>
+              </>
+            )}
           </button>
         </div>
       </header>

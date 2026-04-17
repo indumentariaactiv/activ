@@ -20,19 +20,17 @@ function App() {
 
   useEffect(() => {
     // 1. Centralized Auth Handler
-    const handleAuthStateChange = async (session: any) => {
+    const handleAuthStateChange = async (session: any): Promise<void> => {
       const userId = session?.user?.id;
       
       if (userId) {
         setUser(session.user);
-        // Only fetch if not already fetching for this user
+        // Always await profile fetch, don't duplicate
         if (fetchingProfileFor.current !== userId) {
           await fetchProfile(userId);
-        } else {
-          // If already fetching, we just need to ensure loading eventually closes.
-          // The other fetch will handle it, but for safety:
-          setTimeout(() => setLoading(false), 500);
         }
+        // Only set loading to false AFTER the promise resolves
+        setLoading(false);
       } else {
         setUser(null);
         setProfile(null);
@@ -42,23 +40,14 @@ function App() {
 
     // 2. Initialize and Listen
     const initAndListen = async () => {
-      // Emergency global timeout
-      const authTimeout = setTimeout(() => {
-        if (isLoading) {
-          console.warn("Auth initialization timed out. Forcing loading to false.");
-          setLoading(false);
-        }
-      }, 6000);
-
       try {
         const { data: { session } } = await supabase.auth.getSession();
         console.log("Auth Init - Session status:", !!session);
         await handleAuthStateChange(session);
+        // Only set loading to false after successful await
+        setLoading(false);
       } catch (err) {
         console.error("Critical Auth Error:", err);
-      } finally {
-        clearTimeout(authTimeout);
-        // Ensure we always close the initial loading "curtain"
         setLoading(false);
       }
 
@@ -72,10 +61,10 @@ function App() {
           setLoading(false);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           await handleAuthStateChange(session);
-          setLoading(false); // Safety lift
+          // Only set loading to false after successful await
         } else if (event === 'INITIAL_SESSION') {
           await handleAuthStateChange(session);
-          setLoading(false); // Safety lift
+          // Only set loading to false after successful await
         } else {
           await handleAuthStateChange(session);
         }
@@ -123,7 +112,6 @@ function App() {
       setProfile(null);
     } finally {
       fetchingProfileFor.current = null;
-      setLoading(false);
     }
   };
 
