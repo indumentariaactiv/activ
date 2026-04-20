@@ -107,7 +107,15 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
+    // 1. Verificar sesión activa ANTES de subir — evita cuelgue en Vercel
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Tu sesión expiró. Recargá la página e iniciá sesión nuevamente.');
+      event.target.value = '';
+      return;
+    }
+
     setUploading(true);
     const loadingToast = toast.loading('Subiendo archivo...');
     const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
@@ -115,8 +123,20 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
     const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
     const filePath = `uploads/${fileName}`;
 
+    // 2. Timeout: si Supabase no responde en 20s, cortar y mostrar error claro
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('El servidor tardó demasiado. Verificá tu conexión y reintentá.')), ms)
+        )
+      ]);
+
     try {
-      const { error: uploadError } = await supabase.storage.from('custom_designs').upload(filePath, file);
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('custom_designs').upload(filePath, file),
+        20000
+      );
       if (uploadError) throw uploadError;
       
       const { data: urlData } = supabase.storage.from('custom_designs').getPublicUrl(filePath);
@@ -126,12 +146,13 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       toast.success('Archivo subido correctamente', { id: loadingToast });
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(`Error al subir archivo: ${error.message || 'Verifica tu conexión y reintentá.'}`, { id: loadingToast });
+      toast.error(`Error al subir: ${error.message || 'Verificá tu conexión y reintentá.'}`, { id: loadingToast });
     } finally {
       event.target.value = '';
       setUploading(false);
     }
   };
+
 
   const handleGridChange = (size: string, val: number) => {
     setSizeGrid(prev => prev.map(item => item.size === size ? { ...item, quantity: val } : item));

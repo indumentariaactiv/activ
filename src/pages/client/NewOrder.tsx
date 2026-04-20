@@ -208,8 +208,10 @@ const NewOrder = () => {
     const loadingToast = toast.loading('Guardando pedido...');
     
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error("Sesión no encontrada");
+    // Usar getSession() en lugar de getUser() para evitar llamadas a red que pueden colgar
+    const { data: { session } } = await supabase.auth.getSession();
+    const authUser = session?.user;
+    if (!authUser) throw new Error("Sesión no encontrada. Por favor, recargá la página.");
 
       // 1. Create or Update the Order
       let orderData: any;
@@ -482,7 +484,8 @@ const NewOrder = () => {
                 Dirección de envío
               </label>
               <textarea
-                className="input-field min-h-[120px]"
+                className="input-field"
+                rows={2}
                 placeholder="Calle, número, localidad, provincia"
                 value={shippingAddress}
                 onChange={(e) => setShippingAddress(e.target.value)}
