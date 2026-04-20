@@ -172,18 +172,22 @@ const NewOrder = () => {
            }))
          }));
 
-         const shippingInfo = data.client_shipping_info?.[0] || {};
-         
-         // Only update state if component is still mounted
-         if (isMountedRef.current) {
-           setOrderName(data.name);
-           setFullName(shippingInfo.full_name || '');
-           setPhone(shippingInfo.phone || '');
-           setEmail(shippingInfo.email || '');
-           setShippingAddress(shippingInfo.shipping_address || '');
-           setPreferredCarrier(shippingInfo.preferred_carrier || '');
-           setOrderPurpose(shippingInfo.order_purpose || '');
-           setOrderItems(mappedItems);
+          // Subabase returns an object for 1-to-1 relations, not an array.
+          // Safely handle both just in case, to prevent all shipping info from being empty.
+          const shippingInfo = Array.isArray(data.client_shipping_info) 
+            ? (data.client_shipping_info[0] || {}) 
+            : (data.client_shipping_info || {});
+          
+          // Only update state if component is still mounted
+          if (isMountedRef.current) {
+            setOrderName(data.name || '');
+            setFullName(shippingInfo.full_name || '');
+            setPhone(shippingInfo.phone || '');
+            setEmail(shippingInfo.email || '');
+            setShippingAddress(shippingInfo.shipping_address || '');
+            setPreferredCarrier(shippingInfo.preferred_carrier || '');
+            setOrderPurpose(shippingInfo.order_purpose || '');
+            setOrderItems(mappedItems);
            const missingShipping = !shippingInfo.full_name || !shippingInfo.phone || !shippingInfo.email || !shippingInfo.shipping_address || !shippingInfo.preferred_carrier || !shippingInfo.order_purpose;
            const queryStep = searchParams.get('step');
            if (queryStep === '2') {
