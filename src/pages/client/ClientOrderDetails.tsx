@@ -45,6 +45,7 @@ const ClientOrderDetails = () => {
         .from('orders')
         .select(`
           *,
+          client_shipping_info (*),
           order_items (
             *,
             garment_types (name),
@@ -152,7 +153,7 @@ const ClientOrderDetails = () => {
               Dashboard
             </Link>
             {isEditable && (
-              <Link to={`/cliente/pedido/${order.id}/editar`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200 h-10 text-xs">
+              <Link to={`/cliente/pedido/${order.id}/editar?step=2`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200 h-10 text-xs">
                 <span className="material-symbols-outlined text-[1.1rem]">edit</span>
                 Seguir Editando
               </Link>
@@ -160,6 +161,33 @@ const ClientOrderDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Client Information */}
+      {order.client_shipping_info && (
+        <div className="bg-white rounded-3xl p-6 border border-[var(--color-outline-variant)]/20 shadow-xl shadow-gray-100/50 mb-8">
+          <h2 className="font-headline text-lg font-extrabold uppercase tracking-tight mb-4">Información del Cliente</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-bold">Nombre:</span> {order.client_shipping_info.full_name}
+            </div>
+            <div>
+              <span className="font-bold">Teléfono:</span> {order.client_shipping_info.phone}
+            </div>
+            <div>
+              <span className="font-bold">Correo Electrónico:</span> {order.client_shipping_info.email}
+            </div>
+            <div>
+              <span className="font-bold">Dirección:</span> {order.client_shipping_info.shipping_address}
+            </div>
+            <div>
+              <span className="font-bold">Courier:</span> {order.client_shipping_info.preferred_carrier}
+            </div>
+            <div>
+              <span className="font-bold">Propósito:</span> {order.client_shipping_info.order_purpose}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Technical Summary */}
       <div className="space-y-10">

@@ -16,6 +16,8 @@ const AdminOrderDetails = () => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [uploadingDesign, setUploadingDesign] = useState(false);
+  const [showManufacturingModal, setShowManufacturingModal] = useState(false);
+  const [manufacturingCode, setManufacturingCode] = useState('');
   const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['2', '4', '6', '8', '10', '12', '14', '16', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', 'XXXXL', '5XL', 'XXXXXL', '6XL'];
@@ -145,8 +147,13 @@ const AdminOrderDetails = () => {
     } finally {
       if (isMountedRef.current) {
         setUpdatingStatus(false);
-        // FORCE REFRESH from server and await it
-        await fetchOrderDetails();
+        // Refresh from server with error handling
+        try {
+          await fetchOrderDetails();
+        } catch (fetchErr) {
+          console.error("Error refreshing order details:", fetchErr);
+          // Don't show error toast here as it might confuse, just log
+        }
       }
     }
   };
@@ -161,10 +168,34 @@ const AdminOrderDetails = () => {
 
   const confirmSendToProduction = async () => {
     setShowPdfPreview(false);
+    setShowManufacturingModal(true);
+  };
+
+  const sendToProductionWithCode = async () => {
+    if (!manufacturingCode.trim()) {
+      toast.error('Debes ingresar el código de fabricación');
+      return;
+    }
+    setShowManufacturingModal(false);
+    // Update all order items with the manufacturing code
+    const updates = order.order_items.map((item: any) => 
+      supabase
+        .from('order_items')
+        .update({ manufacturing_code: manufacturingCode })
+        .eq('id', item.id)
+    );
+    await Promise.all(updates);
     await updateOrderStatus('in_production');
+    setManufacturingCode('');
   };
 
   const finalizeOrder = async () => {
+    // Check if all items have manufacturing code
+    const missingCode = order.order_items.some((item: any) => !item.manufacturing_code);
+    if (missingCode) {
+      toast.error('Todos los items deben tener código de fabricación antes de finalizar');
+      return;
+    }
     if (!window.confirm("¿Seguro que deseas marcar el pedido como FINALIZADO? Esta acción indica que el pedido ya fue entregado.")) return;
     await updateOrderStatus('delivered');
   };
@@ -998,8 +1029,24 @@ const AdminOrderDetails = () => {
                 onChange={(e) => handleSpecChange(item.id, 'admin_comment', e.target.value)}
                 onBlur={(e) => handleSpecBlur(item.id, 'admin_comment', e.target.value)}
                 rows={2}
+                disabled={order.status === 'in_production'}
               />
             </div>
+
+            {/* Manufacturing Code */}
+            {(order.status === 'in_production' || order.status === 'delivered') && (
+              <div className="mt-6 pt-6 border-t border-[var(--color-outline-variant)]/10">
+                <h5 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3">Código de Fabricación</h5>
+                <input
+                  type="text"
+                  className="input-field py-2 text-xs w-full"
+                  placeholder="Ej: FAB-2024-001"
+                  value={item.manufacturing_code || ''}
+                  onChange={(e) => handleSpecChange(item.id, 'manufacturing_code', e.target.value)}
+                  onBlur={(e) => handleSpecBlur(item.id, 'manufacturing_code', e.target.value)}
+                />
+              </div>
+            )}
 
             {item.has_personalization && item.order_item_persons?.length > 0 && (
               <div className="mt-14">
@@ -1149,6 +1196,40 @@ const AdminOrderDetails = () => {
               ) : (
                 <div className="p-12 text-center animate-pulse">Generando vista previa...</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manufacturing Code Modal */}
+      {showManufacturingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Código de Fabricación</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Ingresa el código de fabricación proporcionado por la fábrica para este pedido.
+            </p>
+            <input
+              type="text"
+              value={manufacturingCode}
+              onChange={(e) => setManufacturingCode(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+              placeholder="Ej: FAB-2024-001"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowManufacturingModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={sendToProductionWithCode}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Enviar a Producción
+              </button>
             </div>
           </div>
         </div>

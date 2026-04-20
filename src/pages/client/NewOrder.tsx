@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { GarmentForm } from '../../components/orders/GarmentForm';
@@ -43,6 +43,7 @@ const NewOrder = () => {
   const [orderItems, setOrderItems] = useState<GarmentData[]>([]);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [preferredCarrier, setPreferredCarrier] = useState('');
   const [orderPurpose, setOrderPurpose] = useState('');
@@ -58,6 +59,7 @@ const NewOrder = () => {
 
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -171,12 +173,18 @@ const NewOrder = () => {
            setOrderName(data.name);
            setFullName(shippingInfo.full_name || '');
            setPhone(shippingInfo.phone || '');
+           setEmail(shippingInfo.email || '');
            setShippingAddress(shippingInfo.shipping_address || '');
            setPreferredCarrier(shippingInfo.preferred_carrier || '');
            setOrderPurpose(shippingInfo.order_purpose || '');
            setOrderItems(mappedItems);
-           const missingShipping = !shippingInfo.full_name || !shippingInfo.phone || !shippingInfo.shipping_address || !shippingInfo.preferred_carrier || !shippingInfo.order_purpose;
-           setStep(missingShipping ? 1 : 2);
+           const missingShipping = !shippingInfo.full_name || !shippingInfo.phone || !shippingInfo.email || !shippingInfo.shipping_address || !shippingInfo.preferred_carrier || !shippingInfo.order_purpose;
+           const queryStep = searchParams.get('step');
+           if (queryStep === '2') {
+             setStep(2);
+           } else {
+             setStep(missingShipping ? 1 : 2);
+           }
          }
        }
      } catch (err: any) {
@@ -198,7 +206,7 @@ const NewOrder = () => {
   const handlePrev = () => setStep(s => s - 1);
 
   const handleSubmitOrder = async () => {
-    if (!orderName.trim() || !fullName.trim() || !phone.trim() || !shippingAddress.trim() || !preferredCarrier.trim() || !orderPurpose.trim()) {
+    if (!orderName.trim() || !fullName.trim() || !phone.trim() || !email.trim() || !shippingAddress.trim() || !preferredCarrier.trim() || !orderPurpose.trim()) {
       toast.error('Completa todos los datos personales del pedido antes de guardar.');
       setStep(1);
       return;
@@ -236,6 +244,7 @@ const NewOrder = () => {
             client_id: authUser.id,
             full_name: fullName,
             phone,
+            email,
             shipping_address: shippingAddress,
             preferred_carrier: preferredCarrier,
             order_purpose: orderPurpose
@@ -264,6 +273,7 @@ const NewOrder = () => {
             client_id: authUser.id,
             full_name: fullName,
             phone,
+            email,
             shipping_address: shippingAddress,
             preferred_carrier: preferredCarrier,
             order_purpose: orderPurpose
@@ -390,6 +400,7 @@ const NewOrder = () => {
     if (!orderName.trim()) missingFields.push('Nombre del Pedido');
     if (!fullName.trim()) missingFields.push('Nombre del Cliente');
     if (!phone.trim()) missingFields.push('Teléfono');
+    if (!email.trim()) missingFields.push('Correo Electrónico');
     if (!shippingAddress.trim()) missingFields.push('Dirección');
     if (!preferredCarrier.trim()) missingFields.push('Courier');
     if (!orderPurpose.trim()) missingFields.push('Propósito');
@@ -448,7 +459,7 @@ const NewOrder = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
                   Teléfono
@@ -459,6 +470,19 @@ const NewOrder = () => {
                   placeholder="Ej: 11 1234-5678"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                  Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="Ej: contacto@club.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
 
