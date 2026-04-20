@@ -198,11 +198,20 @@ const AdminOrderDetails = () => {
       }
       
       setManufacturingCode('');
+      if (isMountedRef.current) {
+        toast.success('Código guardado. Finalizando pedido...', { id: loadingToast });
+      }
       await updateOrderStatus('delivered');
     } catch (err: any) {
       console.error('Error finalizing order:', err);
-      toast.error(`Error: ${err.message || 'Intenta de nuevo'}`, { id: loadingToast });
-      setUpdatingStatus(false);
+      if (isMountedRef.current) {
+        toast.error(`Error: ${err.message || 'Intenta de nuevo'}`, { id: loadingToast });
+        setUpdatingStatus(false);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setUpdatingStatus(false);
+      }
     }
   };
 

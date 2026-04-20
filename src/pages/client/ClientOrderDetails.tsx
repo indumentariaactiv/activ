@@ -88,6 +88,8 @@ const ClientOrderDetails = () => {
     if (isMountedRef.current) {
       setIsConfirming(true);
     }
+    const loadingToast = toast.loading('Enviando pedido...');
+    
     try {
       const { error } = await supabase
         .from('orders')
@@ -97,16 +99,23 @@ const ClientOrderDetails = () => {
       if (error) throw error;
       
       if (isMountedRef.current) {
-        toast.success("¡Pedido enviado correctamente!");
+        toast.success("¡Pedido enviado correctamente!", { id: loadingToast });
         setOrder({...order, status: 'confirmed'});
+        // Navigate back to dashboard after 1.5s
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            navigate('/cliente/dashboard', { replace: true });
+          }
+        }, 1500);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       if (isMountedRef.current) {
-        toast.error("Error al confirmar el pedido.");
+        toast.error(`Error al confirmar: ${err.message || 'Intenta de nuevo'}`, { id: loadingToast });
+        setIsConfirming(false);
       }
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !isMountedRef.current) {
         setIsConfirming(false);
       }
     }
@@ -307,14 +316,10 @@ const ClientOrderDetails = () => {
              </div>
              
              <div className="flex flex-col sm:flex-row gap-4 w-full">
-               <Link to={`/cliente/pedido/${order.id}/editar`} className="btn bg-[var(--color-surface-container-high)] px-8 py-4 rounded-2xl font-black text-sm uppercase">
-                 <span className="material-symbols-outlined">edit</span>
-                 Volver a Editar
-               </Link>
                <button 
                 onClick={confirmOrder}
                 disabled={isConfirming}
-                className="btn btn-primary flex-[2] bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black text-md uppercase shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="btn btn-primary w-full bg-[var(--color-primary)] text-white py-4 rounded-2xl font-black text-md uppercase shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                >
                  {isConfirming ? 'Enviando...' : (
                    <>
