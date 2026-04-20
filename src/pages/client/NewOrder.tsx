@@ -38,7 +38,11 @@ const resolveTypeTemplate = (name: string) => {
 };
 
 const NewOrder = () => {
-  const [step, setStep] = useState(1);
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  // If editing (id present) start at step 2 if ?step=2 — avoids flashing step 1 while loading
+  const initialStep = (id && searchParams.get('step') === '2') ? 2 : 1;
+  const [step, setStep] = useState(initialStep);
   const [orderName, setOrderName] = useState('');
   const [orderItems, setOrderItems] = useState<GarmentData[]>([]);
   const [fullName, setFullName] = useState('');
@@ -58,8 +62,6 @@ const NewOrder = () => {
   const [garmentTypes, setGarmentTypes] = useState<any[]>([]);
 
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -148,7 +150,7 @@ const NewOrder = () => {
          const mappedItems: GarmentData[] = data.order_items.map((item: any) => ({
            id: item.id,
            garment_type_id: item.garment_type_id,
-           garment_type_name: item.garment_types.name,
+           garment_type_name: item.garment_types?.name ?? '',
            category: item.category,
            base_color: item.base_color,
            sleeve_type: item.sleeve_type,
@@ -160,8 +162,8 @@ const NewOrder = () => {
            design_id: item.design_id,
            custom_design_url: item.custom_design_url,
            observations: item.notes || '',
-           sizes: item.order_item_sizes.map((s: any) => ({ size: s.size, quantity: s.quantity })),
-           persons: item.order_item_persons.map((p: any) => ({ 
+           sizes: (item.order_item_sizes || []).map((s: any) => ({ size: s.size, quantity: s.quantity })),
+           persons: (item.order_item_persons || []).map((p: any) => ({ 
              id: p.id, 
              size: p.size, 
              name: p.person_name, 
@@ -198,10 +200,8 @@ const NewOrder = () => {
        }
        navigate('/cliente/dashboard', { replace: true });
      } finally {
-       // Only update state if component is still mounted
-       if (isMountedRef.current) {
-         setLoading(false);
-       }
+       // Always clear loading — React 18 ignores setState on unmounted components
+       setLoading(false);
      }
    };
 
@@ -227,7 +227,13 @@ const NewOrder = () => {
 
       // 1. Create or Update the Order
       let orderData: any;
+      let oldItemIds: string[] = [];
+
       if (id) {
+        // Fetch existing items to delete LATER only if update succeeds
+        const { data: oldItemsData } = await supabase.from('order_items').select('id').eq('order_id', id);
+        if (oldItemsData) oldItemIds = oldItemsData.map(i => i.id);
+
         const { data: updateData, error: updateError } = await supabase
           .from('orders')
           .update({ 
@@ -255,8 +261,6 @@ const NewOrder = () => {
           }, { onConflict: 'order_id' });
         if (shippingError) throw shippingError;
         
-        // Clean up existing items to re-insert them (standard for draft editing)
-        await supabase.from('order_items').delete().eq('order_id', id);
       } else {
         const { data: insertData, error: insertError } = await supabase
           .from('orders')
@@ -340,55 +344,80 @@ const NewOrder = () => {
       }
 
       // 3. Insert items sequentially with correct fabric_group assignment
+      let insertionError = null;
+      const newlyInsertedIds: string[] = [];
+
       for (const item of itemsWithFabricGroup) {
-          const { data: itemData, error: itemError } = await supabase
-            .from('order_items')
-            .insert({
-              order_id: orderData.id,
-              garment_type_id: item.garment_type_id,
-              category: item.category,
-              base_color: item.base_color,
-              sleeve_type: item.sleeve_type,
-              sleeve_color: item.sleeve_color,
-              fabric_type: item.fabric_type,
-              collar_type: item.collar_type,
-              armhole_color: item.armhole_color,
-              design_id: item.design_id,
-              custom_design_url: item.custom_design_url,
-              has_personalization: item.has_personalization,
-              notes: item.observations,
-              fabric_group: item.fabric_group // Use the calculated fabric_group
-            })
-            .select()
-            .single();
+        try {
+            const { data: itemData, error: itemError } = await supabase
+              .from('order_items')
+              .insert({
+                order_id: orderData.id,
+                garment_type_id: item.garment_type_id,
+                category: item.category,
+                base_color: item.base_color,
+                sleeve_type: item.sleeve_type,
+                sleeve_color: item.sleeve_color,
+                fabric_type: item.fabric_type,
+                collar_type: item.collar_type,
+                armhole_color: item.armhole_color,
+                design_id: item.design_id,
+                custom_design_url: item.custom_design_url,
+                has_personalization: item.has_personalization,
+                notes: item.observations,
+                fabric_group: item.fabric_group
+              })
+              .select()
+              .single();
 
-          if (itemError) throw itemError;
+            if (itemError) throw itemError;
+            newlyInsertedIds.push(itemData.id);
 
-          // 4. Insert Sizes OR Persons
-          if (item.has_personalization && item.persons.length > 0) {
-            const personsToInsert = item.persons.map((p: any) => ({
-              order_item_id: itemData.id,
-              size: p.size,
-              person_name: p.name,
-              person_number: p.number,
-              role: p.role
-            }));
-            await supabase.from('order_item_persons').insert(personsToInsert);
-          } else if (!item.has_personalization && item.sizes.length > 0) {
-            const sizesToInsert = item.sizes
-              .filter((s: any) => s.quantity > 0)
-              .map((s: any) => ({
+            // 4. Insert Sizes OR Persons
+            if (item.has_personalization && item.persons.length > 0) {
+              const personsToInsert = item.persons.map((p: any) => ({
                 order_item_id: itemData.id,
-                size: s.size,
-                quantity: s.quantity
+                size: p.size,
+                person_name: p.name,
+                person_number: p.number,
+                role: p.role
               }));
-            if (sizesToInsert.length > 0) {
-              await supabase.from('order_item_sizes').insert(sizesToInsert);
+              const { error: pErr } = await supabase.from('order_item_persons').insert(personsToInsert);
+              if (pErr) throw pErr;
+            } else if (!item.has_personalization && item.sizes.length > 0) {
+              const sizesToInsert = item.sizes
+                .filter((s: any) => s.quantity > 0)
+                .map((s: any) => ({
+                  order_item_id: itemData.id,
+                  size: s.size,
+                  quantity: s.quantity
+                }));
+              if (sizesToInsert.length > 0) {
+                const { error: sErr } = await supabase.from('order_item_sizes').insert(sizesToInsert);
+                if (sErr) throw sErr;
+              }
             }
-          }
+        } catch (err: any) {
+            insertionError = err;
+            break; // Stop inserting further items
+        }
       }
 
-      // 4. Success -> Redirect to the high-fidelity summary page
+      // If an insertion error occurred, rollback newly inserted items
+      if (insertionError) {
+        if (newlyInsertedIds.length > 0) {
+           console.warn("Rollback: Deleting partially inserted items", newlyInsertedIds);
+           await supabase.from('order_items').delete().in('id', newlyInsertedIds);
+        }
+        throw insertionError;
+      }
+
+      // If all new items inserted successfully AND we are updating an existing draft, delete old ones
+      if (id && oldItemIds.length > 0) {
+        await supabase.from('order_items').delete().in('id', oldItemIds);
+      }
+
+      // 5. Success -> Redirect to the high-fidelity summary page
       toast.success('Pedido guardado correctamente', { id: loadingToast });
       if (isMountedRef.current) {
         navigate(`/cliente/pedido/${orderData.id}`, { replace: true });
@@ -418,6 +447,18 @@ const NewOrder = () => {
 
     handleNext();
   };
+
+  // Show spinner while loading an existing order (prevents step 1 flash)
+  if (id && loading) return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+          <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">Cargando pedido...</p>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto">

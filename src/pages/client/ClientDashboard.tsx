@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
@@ -10,6 +10,8 @@ const ClientDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'production' | 'delivered'>('pending');
   const isMountedRef = useRef(true);
+  // Use a stable user ID for dependency tracking instead of the full user object
+  const userId = user?.id;
 
   const filteredOrders = orders.filter(order => {
     const status = (order.status || '').toLowerCase().trim();
@@ -26,31 +28,19 @@ const ClientDashboard = () => {
   });
 
   useEffect(() => {
-    // Reset mounted flag on mount
     isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
-    // If global loading is done and we have no user, we won't be fetching anything
-    if (!globalLoading && !user) {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
+  // Stable fetch function that doesn't change between renders
+  const fetchOrders = useCallback(async () => {
+    const currentUserId = useAppStore.getState().user?.id;
+    if (!currentUserId) {
+      setLoading(false);
       return;
     }
 
-    if (user) {
-      if (isMountedRef.current) {
-        setLoading(true);
-      }
-      fetchOrders();
-    }
-
-    // Cleanup: mark as unmounted
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [user, globalLoading]);
-
-  const fetchOrders = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -61,25 +51,34 @@ const ClientDashboard = () => {
           created_at,
           order_items(id)
         `)
-        .eq('client_id', user?.id)
+        .eq('client_id', currentUserId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Only update state if component is still mounted
       if (isMountedRef.current) {
         setOrders(data || []);
       }
     } catch (err: any) {
       console.error("Error fetching orders:", err);
-      // alert is annoying if it's a silent transient error, using console first
+      if (isMountedRef.current) {
+        toast.error('Error al cargar pedidos. Intenta refrescar la página.');
+      }
     } finally {
-      // Only update state if component is still mounted
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  };
+  }, []);
+
+  // Fetch on mount and when userId changes (not the full user object reference)
+  useEffect(() => {
+    if (globalLoading) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    fetchOrders();
+  }, [userId, globalLoading, fetchOrders]);
 
   const deleteOrder = async (orderId: string) => {
     if (!window.confirm('¿Seguro que quieres eliminar este pedido?')) return;
@@ -217,7 +216,7 @@ const ClientDashboard = () => {
                     </div>
 
                     <div className="flex flex-col gap-3 items-start md:items-end">
-                      <Link to={order.status === 'draft' ? `/cliente/pedido/${order.id}/editar` : `/cliente/pedido/${order.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-outline-variant)]/50 bg-[var(--color-surface-container-highest)] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--color-primary)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white">
+                      <Link to={order.status === 'draft' ? `/cliente/pedido/${order.id}/editar?step=2` : `/cliente/pedido/${order.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-outline-variant)]/50 bg-[var(--color-surface-container-highest)] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--color-primary)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white">
                         {order.status === 'draft' ? 'Continuar' : 'Ver'}
                       </Link>
                       {['draft', 'confirmed', 'recibido'].includes((order.status || '').toLowerCase().trim()) && (

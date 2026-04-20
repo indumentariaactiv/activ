@@ -26,9 +26,7 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
     }
-
     try {
-      // Fetch orders and join with profiles to get client info (only confirmed and above)
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -40,15 +38,15 @@ const AdminDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Only update state if component is still mounted
       if (isMountedRef.current) {
         setOrders(data || []);
       }
     } catch (err: any) {
       console.error("Error fetching admin orders:", err);
-      if (isMountedRef.current) setError('No se pudieron cargar los pedidos. Intenta actualizar.');
+      if (isMountedRef.current) {
+        setError('No se pudieron cargar los pedidos. Intenta actualizar.');
+      }
     } finally {
-      // Only update state if component is still mounted
       if (isMountedRef.current) {
         setLoading(false);
       }

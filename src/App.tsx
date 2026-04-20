@@ -17,66 +17,50 @@ import AdminOrderDetails from './pages/admin/AdminOrderDetails';
 function App() {
   const { setUser, setProfile, setLoading, isLoading } = useAppStore();
   const fetchingProfileFor = useRef<string | null>(null);
+  // Track whether we've completed the initial auth check
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    // 1. Centralized Auth Handler
-    const handleAuthStateChange = async (session: any): Promise<void> => {
+    // Use ONLY onAuthStateChange as the single source of truth.
+    // Supabase v2 fires INITIAL_SESSION immediately on subscribe,
+    // so we don't need a separate getSession() call.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event:", event, "| User:", session?.user?.id?.slice(0, 8) || 'none');
+
+      if (event === 'SIGNED_OUT') {
+        console.log("Auth - Cleaning up session states...");
+        setUser(null);
+        setProfile(null);
+        fetchingProfileFor.current = null;
+        setLoading(false);
+        initializedRef.current = true;
+        return;
+      }
+
       const userId = session?.user?.id;
-      
+
       if (userId) {
-        setUser(session.user);
-        // Always await profile fetch, don't duplicate
-        if (fetchingProfileFor.current !== userId) {
+        setUser(session!.user);
+
+        // Only fetch profile if we don't already have it for this user,
+        // OR if this is the initial session check.
+        const currentProfile = useAppStore.getState().profile;
+        const profileAlreadyLoaded = currentProfile?.id === userId;
+
+        if (!profileAlreadyLoaded && fetchingProfileFor.current !== userId) {
           await fetchProfile(userId);
         }
-        // Only set loading to false AFTER the promise resolves
-        setLoading(false);
       } else {
         setUser(null);
         setProfile(null);
-        setLoading(false);
-      }
-    };
-
-    // 2. Initialize and Listen
-    const initAndListen = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("Auth Init - Session status:", !!session);
-        await handleAuthStateChange(session);
-        // Only set loading to false after successful await
-        setLoading(false);
-      } catch (err) {
-        console.error("Critical Auth Error:", err);
-        setLoading(false);
       }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("Auth Event:", event);
-        if (event === 'SIGNED_OUT') {
-          console.log("Auth - Cleaning up session states...");
-          setUser(null);
-          setProfile(null);
-          fetchingProfileFor.current = null;
-          setLoading(false);
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await handleAuthStateChange(session);
-          // Only set loading to false after successful await
-        } else if (event === 'INITIAL_SESSION') {
-          await handleAuthStateChange(session);
-          // Only set loading to false after successful await
-        } else {
-          await handleAuthStateChange(session);
-        }
-      });
-
-      return subscription;
-    };
-
-    const subPromise = initAndListen();
+      setLoading(false);
+      initializedRef.current = true;
+    });
 
     return () => {
-      subPromise.then(sub => sub.unsubscribe());
+      subscription.unsubscribe();
     };
   }, [setUser, setProfile, setLoading]);
 
@@ -85,7 +69,7 @@ function App() {
     fetchingProfileFor.current = userId;
     
     try {
-      console.log(`Fetch - Attempting to load profile for: ${userId} (Attempt ${4 - retries})`);
+      console.log(`Fetch - Attempting to load profile for: ${userId.slice(0, 8)} (Attempt ${4 - retries})`);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -109,7 +93,11 @@ function App() {
       }
     } catch (err: any) {
       console.error("Fetch - Failed to load profile:", err.message || err);
-      setProfile(null);
+      // Don't null out the profile on TOKEN_REFRESHED failures if we already have one
+      const currentProfile = useAppStore.getState().profile;
+      if (!currentProfile) {
+        setProfile(null);
+      }
     } finally {
       fetchingProfileFor.current = null;
     }

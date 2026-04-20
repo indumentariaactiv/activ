@@ -18,6 +18,8 @@ const AdminOrderDetails = () => {
   const [uploadingDesign, setUploadingDesign] = useState(false);
   const [showManufacturingModal, setShowManufacturingModal] = useState(false);
   const [manufacturingCode, setManufacturingCode] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
   const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['2', '4', '6', '8', '10', '12', '14', '16', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', 'XXXXL', '5XL', 'XXXXXL', '6XL'];
@@ -164,6 +166,33 @@ const AdminOrderDetails = () => {
     const url = URL.createObjectURL(blob);
     setPdfUrl(url);
     setShowPdfPreview(true);
+  };
+
+  const updateOrderName = async (newName: string) => {
+    if (!newName.trim()) {
+      toast.error('El nombre no puede estar vacío');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ name: newName.trim() })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      if (isMountedRef.current) {
+        setOrder((prev: any) => ({ ...prev, name: newName.trim() }));
+        setEditingName(false);
+        toast.success('Nombre actualizado correctamente');
+      }
+    } catch (err: any) {
+      console.error("Error updating order name:", err);
+      if (isMountedRef.current) {
+        toast.error(`Error al actualizar nombre: ${err.message || 'Error desconocido'}`);
+      }
+    }
   };
 
   const confirmSendToProduction = async () => {
@@ -370,23 +399,26 @@ const AdminOrderDetails = () => {
     // --- HEADER ---
     doc.setDrawColor(0);
     doc.setLineWidth(1);
-    
-    // Header Grid (Main box)
-    doc.rect(leftMargin, 40, contentWidth, 50);
-    doc.line(leftMargin + 200, 40, leftMargin + 200, 90); // After Team Name
-    doc.line(leftMargin + 400, 40, leftMargin + 400, 90); // After Logo
-    doc.line(leftMargin + 500, 40, leftMargin + 500, 90); // Before Total
 
-    // Date Divider
-    doc.line(leftMargin + 400, 40, leftMargin + 400, 90);
-    doc.line(leftMargin + 480, 40, leftMargin + 480, 90);
+    // Header: height reduced to 38pt for compactness
+    const headerH = 38;
+    const headerY = 40;
+    doc.rect(leftMargin, headerY, contentWidth, headerH);
+    doc.line(leftMargin + 190, headerY, leftMargin + 190, headerY + headerH); // After Name
+    doc.line(leftMargin + 385, headerY, leftMargin + 385, headerY + headerH); // After Logo
+    doc.line(leftMargin + 460, headerY, leftMargin + 460, headerY + headerH); // After Date / Before Total
 
-    // Team Name / Full Name
-    doc.setFontSize(14);
+    // Client name — small font, auto-wrapped to fit the 190pt cell
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     const shippingInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
     const clientDisplayName = shippingInfo?.full_name || order.profiles?.team_name || order.profiles?.name || 'SIN NOMBRE';
-    doc.text(clientDisplayName.toUpperCase(), leftMargin + 10, 70, { maxWidth: 180 });
+    const nameLines: string[] = doc.splitTextToSize(clientDisplayName.toUpperCase(), 175);
+    const visibleNameLines = nameLines.slice(0, 2);
+    const lineHeight = 10;
+    const nameBlockH = visibleNameLines.length * lineHeight;
+    const nameY = headerY + (headerH - nameBlockH) / 2 + lineHeight - 2;
+    doc.text(visibleNameLines, leftMargin + 7, nameY);
 
     // Logo (center)
     let logoData: string = logoAltiv as string;
@@ -394,31 +426,29 @@ const AdminOrderDetails = () => {
         const fetched = await getBase64Image(logoAltiv);
         if (fetched) logoData = fetched;
     }
-
     try {
         if (logoData) {
-            doc.addImage(logoData as string, 'PNG', leftMargin + 240, 48, 80, 35);
+            doc.addImage(logoData as string, 'PNG', leftMargin + 230, headerY + 4, 70, 30);
         } else {
             throw new Error("No logo data");
         }
     } catch (e) {
-        doc.setFontSize(16);
-        doc.text('ALTIV', leftMargin + 280, 70, { align: 'center' });
+        doc.setFontSize(13);
+        doc.text('ALTIV', leftMargin + 285, headerY + headerH / 2 + 4, { align: 'center' });
     }
 
-    // Date (Cell)
-    doc.setFontSize(9);
+    // Date — centered in the 75pt date cell (385 to 460)
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text(new Date().toLocaleDateString('es-AR'), leftMargin + 440, 70, { align: 'center' });
+    doc.text(new Date().toLocaleDateString('es-AR'), leftMargin + 385 + 37, headerY + headerH / 2 + 3, { align: 'center' });
 
-    // Total Box (Exact match to image)
-    doc.setFillColor(0, 82, 204); // Sturdier blue
-    doc.rect(leftMargin + 480, 40, contentWidth - 480, 50, 'F');
-    doc.setTextColor(255, 255, 255); // Explicit white
-    doc.setFontSize(22);
+    // Total box from 460 to end
+    doc.setFillColor(0, 82, 204);
+    doc.rect(leftMargin + 460, headerY, contentWidth - 460, headerH, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    // Align center of the box: cell starts at 520, ends at 555. Center is 537.5
-    doc.text(`${totalQuantity}`, 538, 72, { align: 'center' });
+    doc.text(`${totalQuantity}`, leftMargin + 460 + (contentWidth - 460) / 2, headerY + headerH / 2 + 6, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
     // --- SUMMARY TABLE ---
@@ -470,7 +500,7 @@ const AdminOrderDetails = () => {
     autoTable(doc, {
       head: [summaryHeaders],
       body: summaryData,
-      startY: 105,
+      startY: headerY + headerH + 15,
       margin: { left: leftMargin, right: leftMargin },
       styles: { fontSize: 7, cellPadding: 3, halign: 'center', lineWidth: 0.1, lineColor: [200, 200, 200] },
       headStyles: { fillColor: [240, 240, 240], textColor: 0, halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: [200, 200, 200] },
@@ -674,7 +704,52 @@ const AdminOrderDetails = () => {
           {/* Info Pedido */}
           <div className="flex flex-col border-r border-[var(--color-outline-variant)]/10 pr-6">
             <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Información del Pedido</span>
-            <h1 className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight">{order.name}</h1>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') updateOrderName(tempName);
+                    if (e.key === 'Escape') {
+                      setEditingName(false);
+                      setTempName(order.name);
+                    }
+                  }}
+                  className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight bg-transparent border-b border-[var(--color-primary)] focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  onClick={() => updateOrderName(tempName)}
+                  className="text-[var(--color-primary)] hover:text-[var(--color-primary)]/80"
+                >
+                  <span className="material-symbols-outlined text-lg">check</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingName(false);
+                    setTempName(order.name);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group">
+                <h1 className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight">{order.name}</h1>
+                <button
+                  onClick={() => {
+                    setEditingName(true);
+                    setTempName(order.name);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[var(--color-primary)] transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-sm">edit</span>
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-2">
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusChipClass(order.status)}`}>
                     {getStatusLabel(order.status).toUpperCase()}

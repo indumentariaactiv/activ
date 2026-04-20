@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,31 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   const { user, profile, isLoading } = useAppStore();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  // Wait a brief period before showing "profile missing" screen
+  // This prevents flashing during TOKEN_REFRESHED events
+  const [showProfileError, setShowProfileError] = useState(false);
+  const profileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // If user exists but profile is null, wait 3 seconds before showing error UI
+  useEffect(() => {
+    if (user && !profile && !isLoading) {
+      profileTimerRef.current = setTimeout(() => {
+        setShowProfileError(true);
+      }, 3000);
+    } else {
+      setShowProfileError(false);
+      if (profileTimerRef.current) {
+        clearTimeout(profileTimerRef.current);
+        profileTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (profileTimerRef.current) {
+        clearTimeout(profileTimerRef.current);
+      }
+    };
+  }, [user, profile, isLoading]);
 
   if (isLoading) {
     return (
@@ -36,12 +61,23 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
     return <Navigate to={target} replace />;
   }
 
-  // If we have a user but no profile, and we aren't loading, 
-  // we might have a broken profile record. Don't trap in a loop.
-  // Instead, allow the children to render (some components might handle missing profile)
-  // or at least show the layout without role-specific content.
+  // If we have a user but no profile: show a loading spinner briefly,
+  // and only show the error/retry screen after the timeout
   if (user && !profile && allowedRole) {
-     const logout = async () => {
+    if (!showProfileError) {
+      // Brief loading state — profile is likely arriving soon
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface)]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[var(--color-primary-container)] border-t-[var(--color-primary)] rounded-full animate-spin"></div>
+            <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">Cargando perfil...</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Only show the full error UI after the timeout
+    const logout = async () => {
        if (isLoggingOut) return;
        setIsLoggingOut(true);
        
