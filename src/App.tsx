@@ -21,10 +21,18 @@ function App() {
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    // Use ONLY onAuthStateChange as the single source of truth.
-    // Supabase v2 fires INITIAL_SESSION immediately on subscribe,
-    // so we don't need a separate getSession() call.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    let isSubscribed = true;
+
+    // Safety fallback: if auth takes too long, force unlock after 3s
+    const timeoutId = setTimeout(() => {
+      if (useAppStore.getState().isLoading) {
+        console.warn("Auth initialization timed out. Forcing app unlock.");
+        setLoading(false);
+      }
+    }, 3000);
+
+    const handleSession = async (session: any, event: string) => {
+      if (!isSubscribed) return;
       console.log("Auth Event:", event, "| User:", session?.user?.id?.slice(0, 8) || 'none');
 
       if (event === 'SIGNED_OUT') {
@@ -40,10 +48,9 @@ function App() {
       const userId = session?.user?.id;
 
       if (userId) {
-        setUser(session!.user);
+        setUser(session.user);
 
-        // Only fetch profile if we don't already have it for this user,
-        // OR if this is the initial session check.
+        // Only fetch profile if we don't already have it for this user
         const currentProfile = useAppStore.getState().profile;
         const profileAlreadyLoaded = currentProfile?.id === userId;
 
@@ -57,9 +64,26 @@ function App() {
 
       setLoading(false);
       initializedRef.current = true;
+    };
+
+    // 1. Manually fetch the initial session to prevent race conditions or missing events
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Auth - getSession error:", error);
+        setLoading(false);
+      } else {
+        handleSession(session, 'MANUAL_INITIAL_SESSION');
+      }
+    });
+
+    // 2. Subscribe to auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      await handleSession(session, event);
     });
 
     return () => {
+      isSubscribed = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, [setUser, setProfile, setLoading]);
