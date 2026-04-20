@@ -16,7 +16,6 @@ const AdminOrderDetails = () => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [uploadingDesign, setUploadingDesign] = useState(false);
-  const [editingSpecs, setEditingSpecs] = useState<Record<string, any>>({});
   const isMountedRef = useRef(true);
 
   const STANDARD_SIZES = ['2', '4', '6', '8', '10', '12', '14', '16', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', 'XXXXL', '5XL', 'XXXXXL', '6XL'];
@@ -150,17 +149,6 @@ const AdminOrderDetails = () => {
         await fetchOrderDetails();
       }
     }
-  };
-
-  const sendToProduction = async () => {
-    if (updatingStatus) return;
-    
-    // Generate PDF and show preview
-    const doc = await generateProductionPDF();
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    setPdfUrl(url);
-    setShowPdfPreview(true);
   };
 
   const handlePreviewClick = async () => {
@@ -309,9 +297,6 @@ const AdminOrderDetails = () => {
     const leftMargin = 40;
     const contentWidth = pageWidth - leftMargin * 2;
     
-    // Helper for table header styling
-    const headStyles: any = { fillColor: [0, 82, 204], textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 };
-
     // --- HEADER ---
     doc.setDrawColor(0);
     doc.setLineWidth(1);
@@ -334,9 +319,10 @@ const AdminOrderDetails = () => {
     doc.text(clientDisplayName.toUpperCase(), leftMargin + 10, 70, { maxWidth: 180 });
 
     // Logo (center)
-    let logoData = logoAltiv;
+    let logoData: string = logoAltiv as string;
     if (typeof logoAltiv === 'string') {
-        logoData = await getBase64Image(logoAltiv);
+        const fetched = await getBase64Image(logoAltiv);
+        if (fetched) logoData = fetched;
     }
 
     try {
@@ -387,7 +373,7 @@ const AdminOrderDetails = () => {
     const summaryData: any[] = [];
     Object.entries(groupedItems).forEach(([type, items]) => {
       // For each item in the group
-      items.forEach((item, idx) => {
+      items.forEach((item, _idx) => {
         const quantities = visibleSizes.map((size: string) => {
           if (item.has_personalization) {
             return item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
