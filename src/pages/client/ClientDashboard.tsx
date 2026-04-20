@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
+import toast from 'react-hot-toast';
 
 const ClientDashboard = () => {
   const { profile, user, isLoading: globalLoading } = useAppStore();
@@ -37,6 +38,9 @@ const ClientDashboard = () => {
     }
 
     if (user) {
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
       fetchOrders();
     }
 
@@ -80,6 +84,8 @@ const ClientDashboard = () => {
   const deleteOrder = async (orderId: string) => {
     if (!window.confirm('¿Seguro que quieres eliminar este pedido?')) return;
     
+    const toastId = toast.loading('Eliminando pedido...');
+    
     try {
       const { error, count } = await supabase
         .from('orders')
@@ -90,13 +96,16 @@ const ClientDashboard = () => {
       
       // If no rows were affected, it means RLS blocked it or order doesn't exist
       if (count === 0) {
-        alert('No tienes permiso para eliminar este pedido (puede que ya esté confirmado o en producción).');
+        toast.error('No tienes permiso para eliminar este pedido (puede que ya esté confirmado o en producción).', { id: toastId });
         return;
       }
 
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+      if (isMountedRef.current) {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+        toast.success('Pedido eliminado correctamente', { id: toastId });
+      }
     } catch (err: any) {
-      alert(`Error al eliminar: ${err.message || 'Inténtalo de nuevo.'}`);
+      toast.error(`Error al eliminar: ${err.message || 'Inténtalo de nuevo.'}`, { id: toastId });
       console.error(err);
     }
   };

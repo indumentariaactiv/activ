@@ -177,17 +177,33 @@ const AdminOrderDetails = () => {
       return;
     }
     setShowManufacturingModal(false);
+    setUpdatingStatus(true);
+    const loadingToast = toast.loading('Guardando código y finalizando...');
 
-    // Update all order items with the manufacturing code
-    const updates = order.order_items.map((item: any) => 
-      supabase
-        .from('order_items')
-        .update({ manufacturing_code: manufacturingCode })
-        .eq('id', item.id)
-    );
-    await Promise.all(updates);
-    setManufacturingCode('');
-    await updateOrderStatus('delivered');
+    try {
+      // Update all order items with the manufacturing code using allSettled for error recovery
+      const updates = order.order_items.map((item: any) => 
+        supabase
+          .from('order_items')
+          .update({ manufacturing_code: manufacturingCode })
+          .eq('id', item.id)
+      );
+      const results = await Promise.allSettled(updates);
+      const failedUpdates = results.filter(r => r.status === 'rejected');
+      
+      if (failedUpdates.length > 0) {
+        toast.error(`Error actualizando ${failedUpdates.length} items. Intenta de nuevo.`, { id: loadingToast });
+        setUpdatingStatus(false);
+        return;
+      }
+      
+      setManufacturingCode('');
+      await updateOrderStatus('delivered');
+    } catch (err: any) {
+      console.error('Error finalizing order:', err);
+      toast.error(`Error: ${err.message || 'Intenta de nuevo'}`, { id: loadingToast });
+      setUpdatingStatus(false);
+    }
   };
 
   const finalizeOrder = async () => {
@@ -241,7 +257,8 @@ const AdminOrderDetails = () => {
     if (!adminComment.trim()) return;
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error('Usuario no autenticado');
 
       const { error } = await supabase
@@ -254,12 +271,16 @@ const AdminOrderDetails = () => {
 
       if (error) throw error;
 
-      setAdminComment('');
-      fetchOrderDetails(); // Refresh to show new comment
-      toast.success('Comentario agregado');
+      if (isMountedRef.current) {
+        setAdminComment('');
+        await fetchOrderDetails(); // Refresh to show new comment
+        toast.success('Comentario agregado');
+      }
     } catch (err: any) {
       console.error(err);
-      toast.error('Error al agregar comentario');
+      if (isMountedRef.current) {
+        toast.error('Error al agregar comentario');
+      }
     }
   };
 
@@ -268,7 +289,8 @@ const AdminOrderDetails = () => {
     const loadingToast = toast.loading('Subiendo diseño...');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error('Usuario no autenticado');
 
       const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
@@ -286,6 +308,8 @@ const AdminOrderDetails = () => {
         .from('custom_designs')
         .getPublicUrl(filePath);
 
+      if (!urlData?.publicUrl) throw new Error('No se pudo generar URL pública');
+
       const { error: dbError } = await supabase
         .from('admin_designs')
         .insert({
@@ -297,13 +321,19 @@ const AdminOrderDetails = () => {
 
       if (dbError) throw dbError;
 
-      fetchOrderDetails(); // Refresh to show new design
-      toast.success('Diseño subido correctamente', { id: loadingToast });
+      if (isMountedRef.current) {
+        await fetchOrderDetails(); // Refresh to show new design
+        toast.success('Diseño subido correctamente', { id: loadingToast });
+      }
     } catch (err: any) {
       console.error(err);
-      toast.error(`Error al subir diseño: ${err.message}`, { id: loadingToast });
+      if (isMountedRef.current) {
+        toast.error(`Error al subir diseño: ${err.message}`, { id: loadingToast });
+      }
     } finally {
-      setUploadingDesign(false);
+      if (isMountedRef.current) {
+        setUploadingDesign(false);
+      }
     }
   };
 

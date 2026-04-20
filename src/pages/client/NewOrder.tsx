@@ -102,8 +102,12 @@ const NewOrder = () => {
           setGarmentTypes(GARMENT_TYPE_FALLBACKS);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching masters:", err);
+      if (isMountedRef.current) {
+        toast.error('No se pudieron cargar los tipos de prendas. Usando valores por defecto.');
+        setGarmentTypes(GARMENT_TYPE_FALLBACKS);
+      }
     }
   };
 
@@ -386,7 +390,9 @@ const NewOrder = () => {
 
       // 4. Success -> Redirect to the high-fidelity summary page
       toast.success('Pedido guardado correctamente', { id: loadingToast });
-      navigate(`/cliente/pedido/${orderData.id}`, { replace: true });
+      if (isMountedRef.current) {
+        navigate(`/cliente/pedido/${orderData.id}`, { replace: true });
+      }
     } catch (error: any) {
       console.error("Error detallado al guardar:", error);
       toast.error(`Error al guardar: ${error.message || "Verifica la consola para más detalles."}`, { id: loadingToast });
