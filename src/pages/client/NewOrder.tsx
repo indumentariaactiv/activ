@@ -583,12 +583,12 @@ const NewOrder = () => {
               </select>
             </div>
 
-            <div className="flex justify-between mt-4">
-              <button onClick={handlePrev} disabled className="btn btn-tertiary opacity-50">Atrás</button>
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 mt-8">
+              <button onClick={handlePrev} disabled className="btn btn-tertiary opacity-50 w-full sm:w-auto">Atrás</button>
               <button 
                 onClick={createDraftOrder} 
                 disabled={loading}
-                className="btn btn-primary"
+                className="btn btn-primary w-full sm:w-auto justify-center"
               >
                 Continuar con Prendas
                 <span className="material-symbols-outlined">arrow_forward</span>
@@ -666,9 +666,9 @@ const NewOrder = () => {
                   </div>
                 )}
                 
-                <div className="flex justify-between mt-8 pt-6 border-t border-[var(--color-outline-variant)]/20">
-                  <button onClick={handlePrev} className="btn btn-tertiary">Atrás</button>
-                  <button onClick={handleSubmitOrder} disabled={orderItems.length === 0 || loading} className="btn btn-primary">
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-4 mt-8 pt-6 border-t border-[var(--color-outline-variant)]/20">
+                  <button onClick={handlePrev} className="btn btn-tertiary w-full sm:w-auto">Atrás</button>
+                  <button onClick={handleSubmitOrder} disabled={orderItems.length === 0 || loading} className="btn btn-primary w-full sm:w-auto justify-center">
                     {loading ? 'Guardando...' : 'Ver Resumen Final'}
                     <span className="material-symbols-outlined flex">arrow_forward</span>
                   </button>

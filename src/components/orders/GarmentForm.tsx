@@ -463,10 +463,11 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                   <span className="text-xs bg-[var(--color-surface-container-high)] px-3 py-1 rounded-full font-bold">{persons.length} prendas añadidas</span>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6 items-start">
-                  {/* List of Persons with Scroll */}
-                  <div className="overflow-hidden bg-[var(--color-surface-container-low)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm">
-                    <div className="max-h-[500px] overflow-y-auto">
+                <div className="flex flex-col lg:grid lg:grid-cols-[1fr_350px] gap-6 items-start">
+                  
+                  {/* List of Persons with Scroll (Appears second on mobile, left on desktop) */}
+                  <div className="order-2 lg:order-1 overflow-hidden bg-[var(--color-surface-container-low)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm w-full">
+                    <div className="max-h-[500px] overflow-y-auto overflow-x-auto">
                       <table className="w-full text-left">
                         <thead className="sticky top-0 bg-[var(--color-surface-container-high)] z-10">
                           <tr className="border-b border-[var(--color-outline-variant)]/20">
@@ -500,8 +501,8 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                     </div>
                   </div>
 
-                  {/* Add Person Interface */}
-                  <div className="bg-[var(--color-surface)] p-5 rounded-2xl border-2 border-[var(--color-primary)]/10 shadow-lg flex flex-col gap-4 sticky top-20">
+                  {/* Add Person Interface (Appears first on mobile, right on desktop) */}
+                  <div className="order-1 lg:order-2 bg-[var(--color-surface)] w-full p-5 rounded-2xl border-2 border-[var(--color-primary)]/10 shadow-lg flex flex-col gap-4 sticky top-20">
                     <h5 className="font-bold text-sm text-center uppercase tracking-tight text-[var(--color-primary)]">Sumar Prenda Individual</h5>
                     
                     <div className="space-y-4">
@@ -576,9 +577,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    <div className={`grid gap-3 ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'grid-cols-[repeat(auto-fill,minmax(72px,1fr))]' : 'grid-cols-[repeat(auto-fit,minmax(60px,1fr))]'}`}>
+                    <div className={`grid gap-3 ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'grid-cols-[repeat(auto-fill,minmax(72px,1fr))]' : 'grid-cols-[repeat(auto-fit,minmax(60px,1fr))]'} justify-center sm:justify-start`}>
                       {sizeGrid.map(sg => (
-                        <div key={sg.size} className={`flex flex-col items-center bg-[var(--color-surface-container-lowest)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'py-3 px-2 min-w-[68px]' : 'py-2 px-2 min-w-[60px]'}`}>
+                        <div key={sg.size} className={`flex flex-col items-center bg-[var(--color-surface-container-lowest)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'py-3 px-2 w-[68px]' : 'py-2 px-2 w-[60px]'}`}>
                           <span className={`font-headline font-black text-[var(--color-on-surface)] mb-2 px-2 py-1.5 bg-gray-100 rounded-md whitespace-nowrap text-center w-full block ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'text-sm' : 'text-base min-w-[32px]'}`}>{sg.size}</span>
                           <input 
                             type="number" 
@@ -616,11 +617,11 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
           ></textarea>
         </div>
 
-        <div className="flex justify-between items-center gap-3 mt-10 pt-6 border-t border-[var(--color-outline-variant)]/20">
-          <button type="button" onClick={onCancel} className="btn text-[var(--color-on-surface-variant)] font-bold">Descartar</button>
+        <div className="flex flex-col-reverse sm:flex-row justify-between sm:items-center gap-4 mt-10 pt-6 border-t border-[var(--color-outline-variant)]/20">
+          <button type="button" onClick={onCancel} className="btn text-[var(--color-on-surface-variant)] font-bold w-full sm:w-auto">Descartar</button>
           
-          <div className="flex gap-3">
-            <button type="submit" className="btn btn-primary shadow-xl" style={{ background: 'linear-gradient(135deg, #00c06a, #00a05a)' }}>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button type="submit" className="btn btn-primary shadow-xl w-full sm:w-auto justify-center" style={{ background: 'linear-gradient(135deg, #00c06a, #00a05a)' }}>
               {initialData ? 'Guardar Cambios' : 'Confirmar Prenda al Pedido'}
               <span className="material-symbols-outlined text-sm">{initialData ? 'check_circle' : 'add_task'}</span>
             </button>

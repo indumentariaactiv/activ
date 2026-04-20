@@ -95,9 +95,32 @@ const AppLayout = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8 md:py-10">
+      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8 md:py-10 pb-28 md:pb-10">
         <Outlet />
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-surface)]/95 backdrop-blur-lg border-t border-[var(--color-outline-variant)]/20 px-6 py-2 flex justify-around items-center z-50 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link 
+              key={item.path} 
+              to={item.path}
+              className={`flex flex-col items-center gap-1 px-4 py-2 transition-all rounded-xl active:scale-95
+                ${isActive 
+                  ? 'text-[var(--color-primary)]' 
+                  : 'text-[var(--color-on-surface-variant)] hover:text-gray-900'
+                }`}
+            >
+              <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-sm' : ''}`}>
+                <span className="material-symbols-outlined text-[1.5rem]">{item.icon}</span>
+              </div>
+              <span className={`text-[10px] font-bold tracking-wide ${isActive ? 'font-black' : ''}`}>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
     </div>
   );
