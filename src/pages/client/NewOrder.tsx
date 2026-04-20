@@ -41,19 +41,17 @@ const NewOrder = () => {
   const [step, setStep] = useState(1);
   const [orderName, setOrderName] = useState('');
   const [orderItems, setOrderItems] = useState<GarmentData[]>([]);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [preferredCarrier, setPreferredCarrier] = useState('');
+  const [orderPurpose, setOrderPurpose] = useState('');
   const [showGarmentForm, setShowGarmentForm] = useState(false);
   const [editingGarment, setEditingGarment] = useState<GarmentData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [maestrosLoaded, setMaestrosLoaded] = useState(false);
   
-  // Client shipping data
-  const [clientData, setClientData] = useState({
-    fullName: '',
-    phone: '',
-    shippingAddress: '',
-    preferredCarrier: '' as 'OCA' | 'Andreani' | 'Via Cargo' | '',
-    orderPurpose: '' as 'Deporte' | 'Basquet' | 'Tenis' | 'Padel' | 'Voley' | 'Egresados Primaria' | 'Egresados Secundaria' | 'Grupos' | 'Peñas' | ''
-  });
+  const SHIPPING_CARRIERS = ['OCA', 'Andreani', 'Via Cargo'];
+  const ORDER_PURPOSES = ['Deporte', 'Basquet', 'Tenis', 'Padel', 'Voley', 'Egresados Primaria', 'Egresados Secundaria', 'Grupos', 'Peñas'];
   
   // Maestros globales para el formulario
   const [garmentTypes, setGarmentTypes] = useState<any[]>([]);
@@ -104,11 +102,6 @@ const NewOrder = () => {
       }
     } catch (err) {
       console.error("Error fetching masters:", err);
-    } finally {
-      // Mark maestros as loaded
-      if (isMountedRef.current) {
-        setMaestrosLoaded(true);
-      }
     }
   };
 
@@ -121,6 +114,7 @@ const NewOrder = () => {
          .from('orders')
          .select(`
            *,
+           client_shipping_info (*),
            order_items (
              *,
              garment_types (name),
@@ -169,12 +163,20 @@ const NewOrder = () => {
              role: p.role
            }))
          }));
+
+         const shippingInfo = data.client_shipping_info?.[0] || {};
          
          // Only update state if component is still mounted
          if (isMountedRef.current) {
            setOrderName(data.name);
+           setFullName(shippingInfo.full_name || '');
+           setPhone(shippingInfo.phone || '');
+           setShippingAddress(shippingInfo.shipping_address || '');
+           setPreferredCarrier(shippingInfo.preferred_carrier || '');
+           setOrderPurpose(shippingInfo.order_purpose || '');
            setOrderItems(mappedItems);
-           setStep(2); // Ir directamente a la sección de prendas cuando se carga un pedido existente
+           const missingShipping = !shippingInfo.full_name || !shippingInfo.phone || !shippingInfo.shipping_address || !shippingInfo.preferred_carrier || !shippingInfo.order_purpose;
+           setStep(missingShipping ? 1 : 2);
          }
        }
      } catch (err: any) {
@@ -196,6 +198,12 @@ const NewOrder = () => {
   const handlePrev = () => setStep(s => s - 1);
 
   const handleSubmitOrder = async () => {
+    if (!orderName.trim() || !fullName.trim() || !phone.trim() || !shippingAddress.trim() || !preferredCarrier.trim() || !orderPurpose.trim()) {
+      toast.error('Completa todos los datos personales del pedido antes de guardar.');
+      setStep(1);
+      return;
+    }
+
     setLoading(true);
     const loadingToast = toast.loading('Guardando pedido...');
     
@@ -218,6 +226,20 @@ const NewOrder = () => {
         if (updateError) throw updateError;
         orderData = updateData;
         
+        // Update or insert shipping info for the existing order
+        const { error: shippingError } = await supabase
+          .from('client_shipping_info')
+          .upsert({
+            order_id: orderData.id,
+            client_id: authUser.id,
+            full_name: fullName,
+            phone,
+            shipping_address: shippingAddress,
+            preferred_carrier: preferredCarrier,
+            order_purpose: orderPurpose
+          }, { onConflict: 'order_id' });
+        if (shippingError) throw shippingError;
+        
         // Clean up existing items to re-insert them (standard for draft editing)
         await supabase.from('order_items').delete().eq('order_id', id);
       } else {
@@ -232,24 +254,22 @@ const NewOrder = () => {
           .single();
         if (insertError) throw insertError;
         orderData = insertData;
+
+        const { error: shippingError } = await supabase
+          .from('client_shipping_info')
+          .insert({
+            order_id: orderData.id,
+            client_id: authUser.id,
+            full_name: fullName,
+            phone,
+            shipping_address: shippingAddress,
+            preferred_carrier: preferredCarrier,
+            order_purpose: orderPurpose
+          });
+        if (shippingError) throw shippingError;
       }
 
-      // 2. Insert client shipping info
-      const { error: shippingError } = await supabase
-        .from('client_shipping_info')
-        .upsert({
-          order_id: orderData.id,
-          client_id: authUser.id,
-          full_name: clientData.fullName,
-          phone: clientData.phone,
-          shipping_address: clientData.shippingAddress,
-          preferred_carrier: clientData.preferredCarrier,
-          order_purpose: clientData.orderPurpose
-        });
-
-      if (shippingError) throw shippingError;
-
-      // 3. Group items by fabric type respecting ficha rules:
+      // 2. Group items by fabric type respecting ficha rules:
       // - Remera + Short misma tela → 1 ficha
       // - Remera + Short distinta tela → 2 fichas
       // - Remera + Campera → siempre 2 fichas (Campera en ficha separada)
@@ -303,7 +323,7 @@ const NewOrder = () => {
         }
       }
 
-      // 4. Insert items sequentially with correct fabric_group assignment
+      // 3. Insert items sequentially with correct fabric_group assignment
       for (const item of itemsWithFabricGroup) {
           const { data: itemData, error: itemError } = await supabase
             .from('order_items')
@@ -328,7 +348,7 @@ const NewOrder = () => {
 
           if (itemError) throw itemError;
 
-          // 5. Insert Sizes OR Persons
+          // 4. Insert Sizes OR Persons
           if (item.has_personalization && item.persons.length > 0) {
             const personsToInsert = item.persons.map((p: any) => ({
               order_item_id: itemData.id,
@@ -352,7 +372,7 @@ const NewOrder = () => {
           }
       }
 
-      // 6. Success -> Redirect to the high-fidelity summary page
+      // 4. Success -> Redirect to the high-fidelity summary page
       toast.success('Pedido guardado correctamente', { id: loadingToast });
       navigate(`/cliente/pedido/${orderData.id}`, { replace: true });
     } catch (error: any) {
@@ -364,8 +384,19 @@ const NewOrder = () => {
   };
 
   const createDraftOrder = async () => {
-    setLoading(true);
-    setLoading(false);
+    const missingFields = [];
+    if (!orderName.trim()) missingFields.push('Nombre del Pedido');
+    if (!fullName.trim()) missingFields.push('Nombre del Cliente');
+    if (!phone.trim()) missingFields.push('Teléfono');
+    if (!shippingAddress.trim()) missingFields.push('Dirección');
+    if (!preferredCarrier.trim()) missingFields.push('Courier');
+    if (!orderPurpose.trim()) missingFields.push('Propósito');
+
+    if (missingFields.length > 0) {
+      toast.error(`Completa los campos: ${missingFields.join(', ')}`);
+      return;
+    }
+
     handleNext();
   };
 
@@ -374,40 +405,114 @@ const NewOrder = () => {
       {/* Breadcrumb & Header */}
       <div className="mb-10 text-center">
         <p className="font-headline text-[var(--color-primary)] font-extrabold tracking-tighter uppercase text-sm mb-2">
-          Paso {step} de 3
+          Paso {step} de 2
         </p>
         <h1 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-on-surface)]">
           {step === 1 && 'Información General'}
           {step === 2 && 'Agregar Prendas'}
-          {step === 3 && 'Datos de Envío'}
         </h1>
       </div>
 
       <div className="card p-6 md:p-10 mb-8">
         {step === 1 && (
           <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                  Nombre del Pedido
+                </label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Ej: Club Atlético Norte — Temporada 2025" 
+                  value={orderName}
+                  onChange={(e) => setOrderName(e.target.value)}
+                  autoFocus
+                />
+                <p className="text-xs text-[var(--color-on-surface-variant)]">Este nombre te ayudará a identificar el pedido en tu panel y exportaciones.</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                  Nombre del Cliente
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ej: Club Atlético Empalme"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                  Teléfono
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ej: 11 1234-5678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                  Courier preferido
+                </label>
+                <select
+                  className="input-field"
+                  value={preferredCarrier}
+                  onChange={(e) => setPreferredCarrier(e.target.value)}
+                >
+                  <option value="">Seleccionar courier...</option>
+                  {SHIPPING_CARRIERS.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2">
               <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                Nombre del Pedido
+                Dirección de envío
               </label>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="Ej: Club Atlético Norte — Temporada 2025" 
-                value={orderName}
-                onChange={(e) => setOrderName(e.target.value)}
-                autoFocus
+              <textarea
+                className="input-field min-h-[120px]"
+                placeholder="Calle, número, localidad, provincia"
+                value={shippingAddress}
+                onChange={(e) => setShippingAddress(e.target.value)}
               />
-              <p className="text-xs text-[var(--color-on-surface-variant)]">Este nombre te ayudará a identificar el pedido en tu panel y exportaciones.</p>
             </div>
-            
-            <div className="flex justify-end mt-4">
+
+            <div className="flex flex-col gap-2">
+              <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
+                Propósito del pedido
+              </label>
+              <select
+                className="input-field"
+                value={orderPurpose}
+                onChange={(e) => setOrderPurpose(e.target.value)}
+              >
+                <option value="">Seleccionar propósito...</option>
+                {ORDER_PURPOSES.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-between mt-4">
+              <button onClick={handlePrev} disabled className="btn btn-tertiary opacity-50">Atrás</button>
               <button 
                 onClick={createDraftOrder} 
-                disabled={orderName.trim().length === 0 || loading}
+                disabled={loading}
                 className="btn btn-primary"
               >
-                Siguiente
+                Continuar con Prendas
                 <span className="material-symbols-outlined">arrow_forward</span>
               </button>
             </div>
@@ -417,27 +522,20 @@ const NewOrder = () => {
         {step === 2 && (
           <div className="flex flex-col gap-6">
             {showGarmentForm ? (
-              garmentTypes.length > 0 ? (
-                <GarmentForm 
-                  initialData={editingGarment || undefined}
-                  types={garmentTypes}
-                  existingItems={orderItems}
-                  onSave={(data) => {
-                    setOrderItems(prev => {
-                      const exists = prev.find(p => p.id === data.id);
-                      if (exists) return prev.map(p => p.id === data.id ? data : p);
-                      return [...prev, data];
-                    });
-                    setShowGarmentForm(false);
-                    setEditingGarment(null);
-                  }} 
-                  onCancel={() => { setShowGarmentForm(false); setEditingGarment(null); }} 
-                />
-              ) : (
-                <div className="text-center py-10 bg-[var(--color-surface-container-low)] rounded-xl">
-                  <p className="text-[var(--color-on-surface-variant)]">Cargando datos...</p>
-                </div>
-              )
+              <GarmentForm 
+                initialData={editingGarment || undefined}
+                types={garmentTypes}
+                onSave={(data) => {
+                  setOrderItems(prev => {
+                    const exists = prev.find(p => p.id === data.id);
+                    if (exists) return prev.map(p => p.id === data.id ? data : p);
+                    return [...prev, data];
+                  });
+                  setShowGarmentForm(false);
+                  setEditingGarment(null);
+                }} 
+                onCancel={() => { setShowGarmentForm(false); setEditingGarment(null); }} 
+              />
             ) : (
               <>
                 {orderItems.length === 0 ? (
@@ -446,17 +544,10 @@ const NewOrder = () => {
                     <p className="font-bold">Aún no hay prendas en este pedido.</p>
                     <p className="text-sm text-[var(--color-on-surface-variant)] mb-4">Agrega remeras, shorts o cualquier indumentaria necesaria para este pedido.</p>
                     
-                    {!maestrosLoaded ? (
-                      <button disabled className="btn btn-secondary mx-auto opacity-50 cursor-not-allowed">
-                        <span className="material-symbols-outlined text-[1.2rem] animate-spin">hourglass_empty</span>
-                        Cargando tipos de prendas...
-                      </button>
-                    ) : (
-                      <button onClick={() => setShowGarmentForm(true)} className="btn btn-secondary mx-auto">
-                        <span className="material-symbols-outlined text-[1.2rem]">add</span>
-                        Agregar Prenda
-                      </button>
-                    )}
+                    <button onClick={() => setShowGarmentForm(true)} className="btn btn-secondary mx-auto">
+                      <span className="material-symbols-outlined text-[1.2rem]">add</span>
+                      Agregar Prenda
+                    </button>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
@@ -489,7 +580,7 @@ const NewOrder = () => {
                       })}
                     </div>
                     <div className="mt-4 flex justify-center">
-                      <button onClick={() => setShowGarmentForm(true)} disabled={!maestrosLoaded} className="btn btn-tertiary disabled:opacity-50 disabled:cursor-not-allowed">
+                      <button onClick={() => setShowGarmentForm(true)} className="btn btn-tertiary">
                         <span className="material-symbols-outlined">add</span>
                         Agregar Otra Prenda
                       </button>
@@ -499,119 +590,13 @@ const NewOrder = () => {
                 
                 <div className="flex justify-between mt-8 pt-6 border-t border-[var(--color-outline-variant)]/20">
                   <button onClick={handlePrev} className="btn btn-tertiary">Atrás</button>
-                  <button onClick={handleNext} disabled={orderItems.length === 0 || loading} className="btn btn-primary">
-                    Siguiente
+                  <button onClick={handleSubmitOrder} disabled={orderItems.length === 0 || loading} className="btn btn-primary">
+                    {loading ? 'Guardando...' : 'Ver Resumen Final'}
                     <span className="material-symbols-outlined flex">arrow_forward</span>
                   </button>
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                  Nombre Completo
-                </label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Tu nombre completo" 
-                  value={clientData.fullName}
-                  onChange={(e) => setClientData(prev => ({ ...prev, fullName: e.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                  Teléfono de Contacto
-                </label>
-                <input 
-                  type="tel" 
-                  className="input-field" 
-                  placeholder="+54 11 1234-5678" 
-                  value={clientData.phone}
-                  onChange={(e) => setClientData(prev => ({ ...prev, phone: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                Dirección de Envío
-              </label>
-              <textarea 
-                className="input-field resize-none" 
-                rows={3} 
-                placeholder="Dirección completa, código postal, ciudad, provincia"
-                value={clientData.shippingAddress}
-                onChange={(e) => setClientData(prev => ({ ...prev, shippingAddress: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                  Courier Preferido
-                </label>
-                <select 
-                  className="input-field" 
-                  value={clientData.preferredCarrier}
-                  onChange={(e) => setClientData(prev => ({ ...prev, preferredCarrier: e.target.value as any }))}
-                  required
-                >
-                  <option value="">Seleccionar courier...</option>
-                  <option value="OCA">OCA</option>
-                  <option value="Andreani">Andreani</option>
-                  <option value="Via Cargo">Via Cargo</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                  Propósito del Pedido
-                </label>
-                <select 
-                  className="input-field" 
-                  value={clientData.orderPurpose}
-                  onChange={(e) => setClientData(prev => ({ ...prev, orderPurpose: e.target.value as any }))}
-                  required
-                >
-                  <option value="">Seleccionar propósito...</option>
-                  <optgroup label="Deporte">
-                    <option value="Deporte">Deporte (General)</option>
-                    <option value="Basquet">Básquet</option>
-                    <option value="Tenis">Tenis</option>
-                    <option value="Padel">Pádel</option>
-                    <option value="Voley">Vóley</option>
-                  </optgroup>
-                  <optgroup label="Eventos">
-                    <option value="Egresados Primaria">Egresados Primaria</option>
-                    <option value="Egresados Secundaria">Egresados Secundaria</option>
-                    <option value="Grupos">Grupos</option>
-                    <option value="Peñas">Peñas</option>
-                  </optgroup>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-8 pt-6 border-t border-[var(--color-outline-variant)]/20">
-              <button onClick={handlePrev} className="btn btn-tertiary">Atrás</button>
-              <button 
-                onClick={handleSubmitOrder} 
-                disabled={!clientData.fullName || !clientData.phone || !clientData.shippingAddress || !clientData.preferredCarrier || !clientData.orderPurpose || loading} 
-                className="btn btn-primary"
-              >
-                {loading ? 'Guardando...' : 'Finalizar Pedido'}
-                <span className="material-symbols-outlined flex">check_circle</span>
-              </button>
-            </div>
           </div>
         )}
 

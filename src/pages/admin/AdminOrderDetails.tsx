@@ -2,6 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logoAltiv from '../../assets/logo.png';
 
 const AdminOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -10,23 +13,57 @@ const AdminOrderDetails = () => {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [adminComment, setAdminComment] = useState('');
   const [uploadingDesign, setUploadingDesign] = useState(false);
+  const [editingSpecs, setEditingSpecs] = useState<Record<string, any>>({});
   const isMountedRef = useRef(true);
 
-  const STANDARD_SIZES = ['4', '6', '8', '10', '12', '14', '16', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL', 'XXXXXL'];
+  const STANDARD_SIZES = ['2', '4', '6', '8', '10', '12', '14', '16', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', 'XXXXL', '5XL', 'XXXXXL', '6XL'];
   
   const getEffectiveSizes = () => {
     if (!order) return STANDARD_SIZES;
     
     const usedSizes = new Set<string>();
     order.order_items.forEach((item: any) => {
-      item.order_item_sizes?.forEach((s: any) => { if (s.quantity > 0) usedSizes.add(s.size.toString()); });
-      item.order_item_persons?.forEach((p: any) => { usedSizes.add(p.size.toString()); });
+      item.order_item_sizes?.forEach((s: any) => { 
+        if (s.quantity > 0 && s.size !== 'Cantidad' && s.size !== 'Cant.') {
+          usedSizes.add(s.size.toString()); 
+        }
+      });
+      item.order_item_persons?.forEach((p: any) => { 
+        if (p.size !== 'Cantidad' && p.size !== 'Cant.') {
+          usedSizes.add(p.size.toString()); 
+        }
+      });
     });
 
-    const merged = Array.from(new Set([...STANDARD_SIZES, ...Array.from(usedSizes)]));
-    return merged;
+    // Strategy: Use STANDARD_SIZES as a base order, but only keep what's used or standard
+    const allUsed = Array.from(usedSizes);
+    const sorted = [...STANDARD_SIZES].filter(s => usedSizes.has(s) || STANDARD_SIZES.includes(s));
+    
+    // Add any non-standard sizes at the end
+    const nonStandard = allUsed.filter(s => !STANDARD_SIZES.includes(s));
+    
+    return Array.from(new Set([...sorted, ...nonStandard]));
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'Recibido';
+      case 'in_production': return 'En Producción';
+      case 'delivered': return 'Finalizado';
+      default: return status;
+    }
+  };
+
+  const getStatusChipClass = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'in_production': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'delivered': return 'bg-green-50 text-green-700 border-green-200';
+      default: return 'bg-gray-50 text-gray-600 border-gray-200';
+    }
   };
 
   const dynamicSizes = getEffectiveSizes();
@@ -50,7 +87,7 @@ const AdminOrderDetails = () => {
         .from('orders')
         .select(`
           id, name, status, created_at, confirmed_at, client_id,
-          profiles (name, team_name),
+          profiles (name, team_name, email),
           client_shipping_info (full_name, phone, shipping_address, preferred_carrier, order_purpose),
           admin_comments (comment, created_at, admin_id),
           admin_designs (design_url, file_name, created_at),
@@ -109,6 +146,8 @@ const AdminOrderDetails = () => {
     } finally {
       if (isMountedRef.current) {
         setUpdatingStatus(false);
+        // FORCE REFRESH from server and await it
+        await fetchOrderDetails();
       }
     }
   };
@@ -116,7 +155,19 @@ const AdminOrderDetails = () => {
   const sendToProduction = async () => {
     if (updatingStatus) return;
     
-    // Show PDF preview modal first
+    // Generate PDF and show preview
+    const doc = await generateProductionPDF();
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    setPdfUrl(url);
+    setShowPdfPreview(true);
+  };
+
+  const handlePreviewClick = async () => {
+    const doc = await generateProductionPDF();
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    setPdfUrl(url);
     setShowPdfPreview(true);
   };
 
@@ -131,6 +182,14 @@ const AdminOrderDetails = () => {
   };
 
   const updateItemSpec = async (itemId: string, field: string, value: string) => {
+    // Update local state immediately for UI responsiveness
+    setOrder((prev: any) => ({
+      ...prev,
+      order_items: prev.order_items.map((item: any) => 
+        item.id === itemId ? { ...item, [field]: value } : item
+      )
+    }));
+
     try {
       const { error } = await supabase
         .from('order_items')
@@ -138,17 +197,25 @@ const AdminOrderDetails = () => {
         .eq('id', itemId);
       
       if (error) throw error;
-      
-      setOrder((prev: any) => ({
-        ...prev,
-        order_items: prev.order_items.map((item: any) => 
-          item.id === itemId ? { ...item, [field]: value } : item
-        )
-      }));
-    } catch (err) {
-      console.error(err);
-      alert('Error al actualizar ficha técnica');
+    } catch (err: any) {
+      console.error("Error updating item spec:", err);
+      toast.error(`Error al actualizar: ${err.message || 'Error desconocido'}`);
     }
+  };
+
+  const handleSpecChange = (itemId: string, field: string, value: string) => {
+    // Just update UI state without DB call for smooth typing
+    setOrder((prev: any) => ({
+      ...prev,
+      order_items: prev.order_items.map((item: any) => 
+        item.id === itemId ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const handleSpecBlur = (itemId: string, field: string, value: string) => {
+    // Save to DB on blur
+    updateItemSpec(itemId, field, value);
   };
 
   const addAdminComment = async () => {
@@ -221,6 +288,312 @@ const AdminOrderDetails = () => {
     }
   };
 
+  const getBase64Image = async (url: string): Promise<string | null> => {
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.error("Error getting base64 image:", e);
+      return null;
+    }
+  };
+
+  const generateProductionPDF = async () => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const leftMargin = 40;
+    const contentWidth = pageWidth - leftMargin * 2;
+    
+    // Helper for table header styling
+    const headStyles: any = { fillColor: [0, 82, 204], textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 };
+
+    // --- HEADER ---
+    doc.setDrawColor(0);
+    doc.setLineWidth(1);
+    
+    // Header Grid (Main box)
+    doc.rect(leftMargin, 40, contentWidth, 50);
+    doc.line(leftMargin + 200, 40, leftMargin + 200, 90); // After Team Name
+    doc.line(leftMargin + 400, 40, leftMargin + 400, 90); // After Logo
+    doc.line(leftMargin + 500, 40, leftMargin + 500, 90); // Before Total
+
+    // Date Divider
+    doc.line(leftMargin + 400, 40, leftMargin + 400, 90);
+    doc.line(leftMargin + 480, 40, leftMargin + 480, 90);
+
+    // Team Name / Full Name
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    const shippingInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+    const clientDisplayName = shippingInfo?.full_name || order.profiles?.team_name || order.profiles?.name || 'SIN NOMBRE';
+    doc.text(clientDisplayName.toUpperCase(), leftMargin + 10, 70, { maxWidth: 180 });
+
+    // Logo (center)
+    let logoData = logoAltiv;
+    if (typeof logoAltiv === 'string') {
+        logoData = await getBase64Image(logoAltiv);
+    }
+
+    try {
+        if (logoData) {
+            doc.addImage(logoData as string, 'PNG', leftMargin + 240, 48, 80, 35);
+        } else {
+            throw new Error("No logo data");
+        }
+    } catch (e) {
+        doc.setFontSize(16);
+        doc.text('ALTIV', leftMargin + 280, 70, { align: 'center' });
+    }
+
+    // Date (Cell)
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(new Date().toLocaleDateString('es-AR'), leftMargin + 440, 70, { align: 'center' });
+
+    // Total Box (Exact match to image)
+    doc.setFillColor(0, 82, 204); // Sturdier blue
+    doc.rect(leftMargin + 480, 40, contentWidth - 480, 50, 'F');
+    doc.setTextColor(255, 255, 255); // Explicit white
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    // Align center of the box: cell starts at 520, ends at 555. Center is 537.5
+    doc.text(`${totalQuantity}`, 538, 72, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
+    // --- SUMMARY TABLE ---
+    const visibleSizes = dynamicSizes.filter(size =>
+      order.order_items.some((item: any) =>
+        item.has_personalization
+          ? item.order_item_persons?.some((p: any) => p.size === size)
+          : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
+      )
+    );
+
+    const summaryHeaders = ['Prendas / Talles', ...visibleSizes, 'Totales'];
+    
+    // Grouping by garment type
+    const groupedItems: Record<string, any[]> = {};
+    order.order_items.forEach((item: any) => {
+      const type = item.garment_types?.name || 'Otros';
+      if (!groupedItems[type]) groupedItems[type] = [];
+      groupedItems[type].push(item);
+    });
+
+    const summaryData: any[] = [];
+    Object.entries(groupedItems).forEach(([type, items]) => {
+      // For each item in the group
+      items.forEach((item, idx) => {
+        const quantities = visibleSizes.map((size: string) => {
+          if (item.has_personalization) {
+            return item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
+          }
+          return item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
+        });
+
+        // Calculate real total from DB records to catch "non-size" quantities
+        let rowTotal = 0;
+        if (item.has_personalization) {
+          rowTotal = item.order_item_persons?.length || 0;
+        } else {
+          rowTotal = item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+        }
+        
+        summaryData.push([
+          items.length > 1 ? `${type} - ${item.category}` : type, 
+          ...quantities.map(q => q || '-'), 
+          rowTotal
+        ]);
+      });
+    });
+
+    autoTable(doc, {
+      head: [summaryHeaders],
+      body: summaryData,
+      startY: 105,
+      margin: { left: leftMargin, right: leftMargin },
+      styles: { fontSize: 7, cellPadding: 3, halign: 'center', lineWidth: 0.1, lineColor: [200, 200, 200] },
+      headStyles: { fillColor: [240, 240, 240], textColor: 0, halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: [200, 200, 200] },
+      columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 } }
+    });
+
+    let currentY = (doc as any).lastAutoTable.finalY + 25;
+
+    // --- ITEM SECTIONS ---
+    for (let i = 0; i < order.order_items.length; i++) {
+      const item = order.order_items[i];
+      if (currentY > 700) { doc.addPage(); currentY = 50; }
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(34, 150, 243);
+      // IDEM label styled like reference images
+      doc.setFontSize(10);
+      doc.setTextColor(200, 50, 50); // reddish for IDEM
+      doc.text(`IDEM ${i + 1}: ${(item.garment_types?.name || '').toUpperCase()} - ${(item.category || '').toUpperCase()}`, leftMargin, currentY);
+      doc.setTextColor(0);
+      
+      currentY += 10;
+
+      const itemTypeName = (item.garment_types?.name || '').toLowerCase();
+      const isItemMusculosa = itemTypeName.includes('musculosa');
+      const isItemRemera = (itemTypeName.includes('remera') || itemTypeName.includes('camiseta')) && !isItemMusculosa;
+      const isItemShort = itemTypeName.includes('short');
+      const isItemCampera = itemTypeName.includes('campera');
+      const isItemBuzo = itemTypeName.includes('buzo');
+      const hasFicha = isItemRemera || isItemMusculosa || isItemShort || isItemCampera || isItemBuzo;
+
+      if (hasFicha) {
+        // Reference format: TELA [value]   CUELLO [value]   [color box]
+        const gridX = leftMargin;
+        const gridY = currentY;
+        const cellW = 115;
+        const cellH = 25;
+        const labelCellW = 55;
+
+        const drawLabelValueCell = (x: number, y: number, label: string, value: string, w: number) => {
+          // Label cell (gray bg)
+          doc.setFillColor(240, 240, 240);
+          doc.rect(x, y, labelCellW, cellH, 'F');
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.5);
+          doc.rect(x, y, labelCellW, cellH);
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(80, 80, 80);
+          doc.text(label, x + labelCellW / 2, y + cellH / 2 + 2.5, { align: 'center' });
+          // Value cell (white bg)
+          doc.setFillColor(255, 255, 255);
+          doc.rect(x + labelCellW, y, w, cellH, 'F');
+          doc.rect(x + labelCellW, y, w, cellH);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(0, 0, 0);
+          const displayValue = (value || '-').toUpperCase();
+          doc.text(displayValue, x + labelCellW + w / 2, y + cellH / 2 + 2.5, { align: 'center', maxWidth: w - 4 });
+        };
+
+        // Determine which cells to show based on garment type
+        if (isItemRemera) {
+          // Row 1: TELA + CUELLO
+          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW);
+          drawLabelValueCell(gridX + labelCellW + cellW, gridY, 'CUELLO', item.collar_type, cellW);
+          // Row 2: MANGAS + COLOR MANGAS
+          drawLabelValueCell(gridX, gridY + cellH, 'MANGAS', item.sleeve_type, cellW);
+          if (item.sleeve_color) {
+            drawLabelValueCell(gridX + labelCellW + cellW, gridY + cellH, 'COLOR MANGA', item.sleeve_color, cellW);
+          }
+          currentY += (cellH * 2) + 15;
+        } else if (isItemMusculosa) {
+          // Solo TELA
+          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW * 2);
+          currentY += cellH + 15;
+        } else if (isItemShort) {
+          // TELA + BOLSILLOS (from observations/notes)
+          const bolsillosVal = (() => {
+            const obs = item.observations || item.notes || '';
+            if (obs.includes('Con Bolsillos')) return 'Con Bolsillos';
+            if (obs.includes('Sin Bolsillos')) return 'Sin Bolsillos';
+            return '-';
+          })();
+          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW);
+          drawLabelValueCell(gridX + labelCellW + cellW, gridY, 'BOLSILLOS', bolsillosVal, cellW);
+          currentY += cellH + 15;
+        } else if (isItemCampera || isItemBuzo) {
+          // ESTILO: Capucha / Cuello Alto / Cuello Redondo
+          drawLabelValueCell(gridX, gridY, 'ESTILO', item.collar_type, cellW);
+          currentY += cellH + 15;
+        }
+
+        // Design Image (right side)
+        const imageUrl = item.custom_design_url || item.designs?.image_url;
+        if (imageUrl) {
+          const base64 = await getBase64Image(imageUrl);
+          if (base64) {
+            const imgX = gridX + (labelCellW + cellW) * 2 + 20;
+            doc.addImage(base64, 'JPEG', imgX, gridY - 5, 70, 90);
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DISEÑO ADJUNTO', imgX, gridY + 95);
+          }
+        }
+      }
+
+      // Item Sizes Table
+      let itemSizes = visibleSizes.filter(size => 
+        item.has_personalization
+          ? item.order_item_persons?.some((p: any) => p.size === size)
+          : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
+      );
+
+      let itemHeaders = ['Talle', ...itemSizes];
+      let itemQtys = ['Cant.', ...itemSizes.map(size => {
+        if (item.has_personalization) return item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
+        return item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
+      })];
+
+      // Handle items with no standard sizes (accessories/unitarios)
+      if (itemSizes.length === 0) {
+        const total = item.has_personalization 
+          ? item.order_item_persons?.length || 0 
+          : item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+        
+        itemHeaders = ['Detalle', 'Cantidad'];
+        itemQtys = ['Unitario / Sin Talle', total.toString()];
+      }
+
+      autoTable(doc, {
+        head: [itemHeaders],
+        body: [itemQtys],
+        startY: currentY,
+        margin: { left: leftMargin, right: 200 }, // Leave space for image
+        styles: { fontSize: 8, cellPadding: 5, halign: 'center', lineWidth: 0.5, lineColor: [220, 220, 220] },
+        headStyles: { fillColor: [26, 188, 156], textColor: 255, fontStyle: 'bold' },
+        bodyStyles: { fontStyle: 'bold', textColor: [60, 60, 60] },
+        columnStyles: { 0: { halign: 'left', fillColor: [248, 248, 248] } }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`NOTAS: ${(item.admin_comment || item.notes || 'SIN OBSERVACIONES').toUpperCase()}`, leftMargin, currentY);
+      
+      currentY += 40;
+      
+      // Personalization table if exists
+      if (item.has_personalization && item.order_item_persons?.length > 0) {
+        if (currentY > 650) { doc.addPage(); currentY = 50; }
+        doc.text('PLANILLA DE ESTAMPADO INDIVIDUAL', leftMargin, currentY);
+        currentY += 10;
+        
+        const pHeaders = ['Nº', 'Talle', 'Nombre'];
+        const pBody = item.order_item_persons.map((p: any) => [p.person_number || '-', p.size, p.person_name || '-']);
+        
+        autoTable(doc, {
+          head: [pHeaders],
+          body: pBody,
+          startY: currentY,
+          margin: { left: leftMargin, right: leftMargin },
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: [0, 82, 204], textColor: 255 }
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 40;
+      }
+    }
+
+    return doc;
+  };
+
+  const exportToPDF = async () => {
+    const doc = await generateProductionPDF();
+    doc.save(`ficha-produccion-${order.name.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+    toast.success('PDF exportado correctamente');
+  };
+
   if (loading) return <div className="p-12 text-center animate-pulse font-headline">Cargando pedido...</div>;
   if (!order) return <div className="p-12 text-center">Pedido no encontrado.</div>;
 
@@ -230,165 +603,132 @@ const AdminOrderDetails = () => {
   }, 0);
 
   return (
-    <div className="max-w-[95%] mx-auto pb-[100px]">
-      <div className="mb-6">
-        <button onClick={() => navigate('/admin/dashboard', { replace: true })} className="text-[var(--color-primary)] text-sm font-bold flex items-center hover:underline">
-          <span className="material-symbols-outlined text-sm mr-1">arrow_back</span>
+    <div className="max-w-[98%] mx-auto pb-[120px]">
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={() => navigate('/admin/dashboard', { replace: true })} className="text-[var(--color-primary)] text-xs font-bold flex items-center hover:underline bg-[var(--color-primary)]/5 px-3 py-1.5 rounded-full">
+          <span className="material-symbols-outlined text-xs mr-1">arrow_back</span>
           Volver al Panel
         </button>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-on-surface-variant)] opacity-50">Admin Order View v2.0</span>
       </div>
 
-      <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm bg-white">
-        <div className="flex flex-col lg:flex-row justify-between gap-6">
-          <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-primary)]">Ficha de Producción</p>
-            <h1 className="font-headline text-3xl md:text-4xl font-extrabold tracking-tight text-[var(--color-on-surface)]">{order.name}</h1>
-            <div className="grid gap-3 sm:grid-cols-2 text-sm text-[var(--color-on-surface-variant)]">
-              <div><span className="font-bold text-[var(--color-on-surface)]">Cliente:</span> {order.profiles?.team_name || order.profiles?.name}</div>
-              <div><span className="font-bold text-[var(--color-on-surface)]">Fecha:</span> {new Date(order.created_at).toLocaleDateString('es-AR', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</div>
-              <div><span className="font-bold text-[var(--color-on-surface)]">Estado:</span> {order.status === 'confirmed' ? 'Recibido' : order.status === 'in_production' ? 'En producción' : order.status === 'delivered' ? 'Finalizado' : order.status}</div>
-              <div><span className="font-bold text-[var(--color-on-surface)]">Total prendas:</span> {totalQuantity}</div>
-              {order.client_shipping_info?.[0] && (
-                <>
-                  <div><span className="font-bold text-[var(--color-on-surface)]">Propósito:</span> {order.client_shipping_info[0].order_purpose}</div>
-                  <div><span className="font-bold text-[var(--color-on-surface)]">Courier:</span> {order.client_shipping_info[0].preferred_carrier}</div>
-                </>
-              )}
+      {/* CABECERA COMPACTA CON DATOS DEL CLIENTE */}
+      <div className="bg-white rounded-2xl p-4 mb-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Info Pedido */}
+          <div className="flex flex-col border-r border-[var(--color-outline-variant)]/10 pr-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Información del Pedido</span>
+            <h1 className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight">{order.name}</h1>
+            <div className="flex items-center gap-2 mt-2">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusChipClass(order.status)}`}>
+                    {getStatusLabel(order.status).toUpperCase()}
+                </span>
+                <span className="text-[10px] font-bold text-[var(--color-on-surface-variant)]">
+                   {new Date(order.created_at).toLocaleDateString('es-AR')}
+                </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 sm:items-end">
-            <div className="inline-flex items-center rounded-full bg-[var(--color-primary-container)] px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-[var(--color-primary)]">
-              {order.status === 'confirmed' ? 'Recibido' : order.status === 'in_production' ? 'En producción' : order.status === 'delivered' ? 'Finalizado' : order.status}
+          {/* Info Cliente */}
+          <div className="flex flex-col border-r border-[var(--color-outline-variant)]/10 pr-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Contacto del Cliente</span>
+            <p className="font-bold text-sm text-[var(--color-on-surface)]">{order.profiles?.team_name || order.profiles?.name}</p>
+            <div className="grid grid-cols-1 gap-1 mt-1 text-xs">
+              <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
+                <span className="material-symbols-outlined text-[14px]">mail</span>
+                {order.profiles?.email || 'No especificado'}
+              </div>
+              <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
+                <span className="material-symbols-outlined text-[14px]">call</span>
+                {(() => {
+                   const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+                   return shipInfo?.phone || 'No especificado';
+                })()}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3 justify-end">
-              {order.status === 'confirmed' && (
-                <button 
-                  onClick={sendToProduction} 
-                  disabled={updatingStatus}
-                  className={`btn text-xs px-4 py-2 transition-all ${
-                    updatingStatus 
-                      ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed' 
-                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-700 hover:text-white'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">
-                    {updatingStatus ? 'hourglass_empty' : 'factory'}
-                  </span>
-                  {updatingStatus ? 'Enviando...' : 'Enviar a Fábrica'}
-                </button>
-              )}
-              {order.status === 'in_production' && (
-                <button 
-                  onClick={finalizeOrder} 
-                  disabled={updatingStatus}
-                  className={`btn text-xs px-4 py-2 transition-all ${
-                    updatingStatus 
-                      ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed' 
-                      : 'bg-[#e8f5e9] text-[#2e7d32] border-[#a5d6a7] border hover:bg-[#2e7d32] hover:text-white'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">
-                    {updatingStatus ? 'hourglass_empty' : 'check_circle'}
-                  </span>
-                  {updatingStatus ? 'Finalizando...' : 'Finalizar Pedido'}
-                </button>
-              )}
+          </div>
+
+          {/* Logística y Propósito */}
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Logística y Producción</span>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-[var(--color-on-surface-variant)] uppercase">Courier</span>
+                <span className="font-bold">
+                  {(() => {
+                    const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+                    return shipInfo?.preferred_carrier || '-';
+                  })()}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-[var(--color-on-surface-variant)] uppercase">Propósito</span>
+                <span className="font-bold">
+                  {(() => {
+                    const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+                    return shipInfo?.order_purpose || '-';
+                  })()}
+                </span>
+              </div>
+              <div className="flex flex-col col-span-2 mt-1">
+                <span className="text-[9px] font-bold text-[var(--color-on-surface-variant)] uppercase">Dirección de Envío</span>
+                <span className="truncate">
+                  {(() => {
+                    const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+                    return shipInfo?.shipping_address || '-';
+                  })()}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Client Information & Admin Tools */}
-      {order.client_shipping_info?.[0] && (
-        <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm">
-          <h2 className="font-headline text-xl font-bold mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">person</span>
-            Información del Cliente
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="font-bold text-[var(--color-on-surface)]">Nombre:</span>
-              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].full_name}</p>
-            </div>
-            <div>
-              <span className="font-bold text-[var(--color-on-surface)]">Teléfono:</span>
-              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].phone}</p>
-            </div>
-            <div>
-              <span className="font-bold text-[var(--color-on-surface)]">Courier:</span>
-              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].preferred_carrier}</p>
-            </div>
-            <div className="md:col-span-2">
-              <span className="font-bold text-[var(--color-on-surface)]">Dirección:</span>
-              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].shipping_address}</p>
-            </div>
-            <div>
-              <span className="font-bold text-[var(--color-on-surface)]">Propósito:</span>
-              <p className="text-[var(--color-on-surface-variant)]">{order.client_shipping_info[0].order_purpose}</p>
-            </div>
-          </div>
+      {/* Herramientas de Administración compactas */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Subir Diseño */}
+        <div className="bg-white rounded-xl p-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">upload_file</span>
+            Subir Diseño Adicional
+          </h3>
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadAdminDesign(file);
+            }}
+            disabled={uploadingDesign}
+            className="block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-container)]"
+          />
         </div>
-      )}
 
-      {/* Admin Tools */}
-      <div className="card p-6 mb-8 border border-[var(--color-outline-variant)]/20 shadow-sm">
-        <h2 className="font-headline text-xl font-bold mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[var(--color-primary)]">admin_panel_settings</span>
-          Herramientas de Administración
-        </h2>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Design Upload */}
-          <div className="space-y-3">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">upload_file</span>
-              Subir Diseño (si cliente no lo tiene)
-            </h3>
+        {/* Comentario y Observación */}
+        <div className="lg:col-span-2 bg-white rounded-xl p-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">comment</span>
+            Comentario para Producción
+          </h3>
+          <div className="flex gap-2">
             <input
-              type="file"
-              accept="image/*,.pdf"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadAdminDesign(file);
-              }}
-              disabled={uploadingDesign}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-container)]"
+              type="text"
+              value={adminComment}
+              onChange={(e) => setAdminComment(e.target.value)}
+              placeholder="Ej: Entregar antes del 15/04"
+              className="input-field py-1 text-xs flex-1"
+              onKeyPress={(e) => e.key === 'Enter' && addAdminComment()}
             />
-            {uploadingDesign && <p className="text-xs text-[var(--color-primary)]">Subiendo...</p>}
-          </div>
-
-          {/* Admin Comments */}
-          <div className="space-y-3">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">comment</span>
-              Comentarios para Producción
-            </h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={adminComment}
-                onChange={(e) => setAdminComment(e.target.value)}
-                placeholder="Ej: Entregar antes del 15/04"
-                className="input-field flex-1"
-                onKeyPress={(e) => e.key === 'Enter' && addAdminComment()}
-              />
-              <button
-                onClick={addAdminComment}
-                disabled={!adminComment.trim()}
-                className="btn btn-secondary px-4"
-              >
-                <span className="material-symbols-outlined">add</span>
-              </button>
-            </div>
+            <button
+              onClick={addAdminComment}
+              disabled={!adminComment.trim()}
+              className="btn btn-secondary px-3 py-1"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+            </button>
           </div>
         </div>
+      </div>
 
         {/* Display Admin Designs */}
         {order.admin_designs && order.admin_designs.length > 0 && (
@@ -434,10 +774,9 @@ const AdminOrderDetails = () => {
             </div>
           </div>
         )}
-      </div>
 
       {/* Timeline Tracker */}
-      <div className="card p-0 overflow-hidden mb-12 border border-[var(--color-outline-variant)]/20 shadow-none">
+      <div className="bg-white p-0 overflow-hidden mb-12 border border-gray-300">
         <div className="flex w-full">
             {[
                 { key: 'confirmed', label: '1. RECIBIDO', icon: 'inbox' },
@@ -464,9 +803,8 @@ const AdminOrderDetails = () => {
 
       <div className="space-y-6">
         {order.order_items.map((item: any) => {
-          const isRemera = item.garment_types?.name.toLowerCase().includes('remera');
           return (
-          <div key={item.id} className="card p-6 border-l-4" style={{ borderLeftColor: 'var(--color-primary)' }}>
+          <div key={item.id} className="bg-white p-6 border border-gray-300 border-l-4" style={{ borderLeftColor: 'var(--color-primary)' }}>
             <div className="flex items-center gap-2 mb-3">
                <h3 className="font-headline text-xl font-bold">{item.garment_types?.name}</h3>
                <span className="border-2 border-[var(--color-primary)] text-[var(--color-primary)] bg-white text-[10px] uppercase font-black px-4 py-0.5 rounded-full shadow-sm">
@@ -481,183 +819,200 @@ const AdminOrderDetails = () => {
                 </a>
               </div>
             )}
-            
-            {/* Ficha Técnica / Especificaciones Admin */}
-            <div className="bg-[var(--color-surface-container-low)] p-5 rounded-2xl border-2 border-[var(--color-primary)]/10 my-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-[var(--color-primary)]">fact_check</span>
-                <h4 className="font-headline text-sm font-black uppercase tracking-widest text-[var(--color-primary)]">Ficha Técnica de Producción</h4>
+
+                  {/* Ficha Técnica — condicional por tipo de prenda */}
+            {(() => {
+              const typeName = (item.garment_types?.name || '').toLowerCase();
+              const isMusculosa = typeName.includes('musculosa');
+              const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
+              const isShort = typeName.includes('short');
+              const isCamp = typeName.includes('campera');
+              const isBuzo = typeName.includes('buzo');
+              const hasFicha = isRem || isMusculosa || isShort || isCamp || isBuzo;
+              if (!hasFicha) return null;
+
+              // Bolsillos value from notes/observations for shorts
+              const bolsillosVal = (() => {
+                const obs = item.observations || item.notes || '';
+                if (obs.includes('Con Bolsillos')) return 'Con Bolsillos';
+                if (obs.includes('Sin Bolsillos')) return 'Sin Bolsillos';
+                return '—';
+              })();
+
+              return (
+                <div className="mt-4 overflow-hidden border border-gray-300">
+                  <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-300 flex items-center gap-3">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Ficha Técnica</span>
+                    {isRem && <span className="text-[9px] text-gray-400">— datos elegidos por el cliente + especificaciones de producción</span>}
+                  </div>
+                  <table className="w-full border-collapse text-sm">
+                    <tbody>
+
+                      {/* REMERA: Cuello (readonly client) + Tela (editable admin) + Manga (readonly) + Color Mangas (editable) */}
+                      {isRem && (
+                        <>
+                          <tr className="border-b border-gray-300">
+                            <td className="w-[15%] bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Escote / Cuello</td>
+                            <td className="w-[35%] px-3 py-2 border-r border-gray-300">
+                              <span className="font-black text-sm text-gray-800 uppercase">{item.collar_type || '—'}</span>
+                              <span className="ml-2 text-[9px] text-gray-400 uppercase tracking-widest">(cliente)</span>
+                            </td>
+                            <td className="w-[15%] bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Tela</td>
+                            <td className="w-[35%] px-2 py-1.5">
+                              <input
+                                className="w-full h-9 px-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-400 font-bold text-sm placeholder-gray-300"
+                                value={item.fabric_type || ''}
+                                onChange={(e) => handleSpecChange(item.id, 'fabric_type', e.target.value)}
+                                onBlur={(e) => handleSpecBlur(item.id, 'fabric_type', e.target.value)}
+                                placeholder="Ej: MESH, SET..."
+                              />
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Tipo de Manga</td>
+                            <td className="px-3 py-2 border-r border-gray-300">
+                              <span className="font-black text-sm text-gray-800 uppercase">{item.sleeve_type || '—'}</span>
+                              <span className="ml-2 text-[9px] text-gray-400 uppercase tracking-widest">(cliente)</span>
+                            </td>
+                            <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Color Mangas</td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                className="w-full h-9 px-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-400 font-bold text-sm placeholder-gray-300"
+                                value={item.sleeve_color || ''}
+                                onChange={(e) => handleSpecChange(item.id, 'sleeve_color', e.target.value)}
+                                onBlur={(e) => handleSpecBlur(item.id, 'sleeve_color', e.target.value)}
+                                placeholder="Ej: AZUL, NEGRO..."
+                              />
+                            </td>
+                          </tr>
+                        </>
+                      )}
+
+                      {/* MUSCULOSA: Solo Tela (editable admin, sin opciones de cliente) */}
+                      {isMusculosa && (
+                        <tr>
+                          <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Tela</td>
+                          <td className="px-2 py-1.5" colSpan={3}>
+                            <input
+                              className="w-full h-9 px-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-400 font-bold text-sm placeholder-gray-300"
+                              value={item.fabric_type || ''}
+                              onChange={(e) => handleSpecChange(item.id, 'fabric_type', e.target.value)}
+                              onBlur={(e) => handleSpecBlur(item.id, 'fabric_type', e.target.value)}
+                              placeholder="Ej: MESH, SET..."
+                            />
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* SHORT: Bolsillos (readonly client) + Tela (editable admin) */}
+                      {isShort && (
+                        <tr>
+                          <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Bolsillos</td>
+                          <td className="px-3 py-2 border-r border-gray-300">
+                            <span className="font-black text-sm text-gray-800 uppercase">{bolsillosVal}</span>
+                            <span className="ml-2 text-[9px] text-gray-400 uppercase tracking-widest">(cliente)</span>
+                          </td>
+                          <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Tela</td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              className="w-full h-9 px-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-400 font-bold text-sm placeholder-gray-300"
+                              value={item.fabric_type || ''}
+                              onChange={(e) => handleSpecChange(item.id, 'fabric_type', e.target.value)}
+                              onBlur={(e) => handleSpecBlur(item.id, 'fabric_type', e.target.value)}
+                              placeholder="Ej: MESH, SET..."
+                            />
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* CAMPERA: Estilo (readonly client) */}
+                      {isCamp && (
+                        <tr>
+                          <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Estilo / Capucha</td>
+                          <td className="px-3 py-2" colSpan={3}>
+                            <span className="font-black text-sm text-gray-800 uppercase">{item.collar_type || '—'}</span>
+                            <span className="ml-2 text-[9px] text-gray-400 uppercase tracking-widest">(cliente)</span>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* BUZO: Estilo (readonly client) */}
+                      {isBuzo && (
+                        <tr>
+                          <td className="bg-gray-100 px-3 py-2 font-black uppercase text-[10px] border-r border-gray-300 text-gray-500 whitespace-nowrap">Estilo / Cuello</td>
+                          <td className="px-3 py-2" colSpan={3}>
+                            <span className="font-black text-sm text-gray-800 uppercase">{item.collar_type || '—'}</span>
+                            <span className="ml-2 text-[9px] text-gray-400 uppercase tracking-widest">(cliente)</span>
+                          </td>
+                        </tr>
+                      )}
+
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+
+
+            <div className="mt-10">
+              <div className="flex items-center gap-3 mb-4 px-1">
+                <div className="w-1 h-6 bg-gray-400 rounded-full"></div>
+                <h4 className="font-headline text-md font-bold uppercase tracking-tight text-gray-700">Talles & Cantidades</h4>
               </div>
               
-              <div className={`grid grid-cols-1 md:grid-cols-2 ${isRemera ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
-                {(isRemera || item.garment_types?.name.toLowerCase().includes('short')) && (
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo de Tela</label>
-                    <select 
-                      className="input-field py-1.5 text-xs font-bold" 
-                      value={item.fabric_type || ''} 
-                      onChange={(e) => updateItemSpec(item.id, 'fabric_type', e.target.value)}
-                    >
-                      <option value="">Seleccionar tela...</option>
-                      <option value="Microfibra Deportiva">Microfibra Deportiva</option>
-                      <option value="Set de Poliéster">Set de Poliéster</option>
-                      <option value="Algodón Premium">Algodón Premium</option>
-                      <option value="DryFit Honeycomb">DryFit Honeycomb</option>
-                      <option value="Polisap">Polisap</option>
-                    </select>
-                  </div>
-                )}
-                
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo de Cuello</label>
-                  <select 
-                    className="input-field py-1.5 text-xs font-bold" 
-                    value={item.collar_type || ''} 
-                    onChange={(e) => updateItemSpec(item.id, 'collar_type', e.target.value)}
-                  >
-                    <option value="">Seleccionar cuello...</option>
-                    <option value="Cuello Redondo">Cuello Redondo</option>
-                    <option value="Cuello en V">Cuello en V</option>
-                    <option value="Cuello Polo">Cuello Polo</option>
-                    <option value="Cuello Chomba">Cuello Chomba</option>
-                    <option value="Escote V Profundo">Escote V Profundo</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Color de Sisa / Detalles</label>
-                  <input 
-                    type="text" 
-                    className="input-field py-1.5 text-xs" 
-                    placeholder="Ej: Rojo / Igual al diseño" 
-                    value={item.armhole_color || ''} 
-                    onBlur={(e) => updateItemSpec(item.id, 'armhole_color', e.target.value)}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setOrder((prev: any) => ({
-                        ...prev,
-                        order_items: prev.order_items.map((it: any) => it.id === item.id ? { ...it, armhole_color: val } : it)
-                      }));
-                    }}
-                  />
-                </div>
-
-                {isRemera && (
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Manga (Tipo)</label>
-                    <select 
-                      className="input-field py-1.5 text-xs font-bold" 
-                      value={item.sleeve_type || ''} 
-                      onChange={(e) => updateItemSpec(item.id, 'sleeve_type', e.target.value)}
-                    >
-                      <option value="">Sin definir...</option>
-                      <option value="Manga Corta">Manga Corta</option>
-                      <option value="Manga Larga">Manga Larga</option>
-                      <option value="Sin Mangas">Sin Mangas</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* COLORS SECTION - NEW */}
-              <div className="mt-6 pt-6 border-t border-[var(--color-outline-variant)]/10">
-                <h5 className="text-[10px] font-black uppercase tracking-tighter text-[var(--color-on-surface-variant)] mb-4">Especificación Cromática de Producción</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="space-y-3">
-                     <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Color Base / Principal</label>
-                     <div className="flex flex-wrap gap-2 mb-2">
-                        {['Blanco', 'Negro', 'Azul Marino', 'Rojo', 'Amarillo', 'Verde'].map(c => (
-                          <button key={c} onClick={() => updateItemSpec(item.id, 'base_color', c)} className={`text-[9px] px-2 py-1 rounded border font-bold ${item.base_color === c ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white border-[var(--color-outline-variant)]/20 hover:border-[var(--color-primary)]'}`}>{c}</button>
-                        ))}
-                     </div>
-                     <input 
-                        type="text" 
-                        className="input-field py-1.5 text-xs" 
-                        placeholder="Otro color personalizado..." 
-                        value={item.base_color || ''} 
-                        onBlur={(e) => updateItemSpec(item.id, 'base_color', e.target.value)}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setOrder((prev: any) => ({
-                            ...prev,
-                            order_items: prev.order_items.map((it: any) => it.id === item.id ? { ...it, base_color: val } : it)
-                          }));
-                        }}
-                      />
-                   </div>
-
-                   <div className="space-y-3">
-                     <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Color de Mangas / Detalles Adic.</label>
-                     <div className="flex flex-wrap gap-2 mb-2">
-                        {['Blanco', 'Negro', 'Gris', 'Cian', 'Naranja', 'Violeta'].map(c => (
-                          <button key={c} onClick={() => updateItemSpec(item.id, 'sleeve_color', c)} className={`text-[9px] px-2 py-1 rounded border font-bold ${item.sleeve_color === c ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white border-[var(--color-outline-variant)]/20 hover:border-[var(--color-primary)]'}`}>{c}</button>
-                        ))}
-                     </div>
-                     <input 
-                        type="text" 
-                        className="input-field py-1.5 text-xs" 
-                        placeholder="Ej: Manga derecha Roja, Izq Blanca..." 
-                        value={item.sleeve_color || ''} 
-                        onBlur={(e) => updateItemSpec(item.id, 'sleeve_color', e.target.value)}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setOrder((prev: any) => ({
-                            ...prev,
-                            order_items: prev.order_items.map((it: any) => it.id === item.id ? { ...it, sleeve_color: val } : it)
-                          }));
-                        }}
-                      />
-                   </div>
-                </div>
+              <div className="overflow-hidden border border-gray-300">
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-100 border-b border-gray-300">
+                      <th className="p-2 border-r border-gray-300 text-left font-black uppercase text-[9px] opacity-70">Talles</th>
+                      {dynamicSizes.filter(size => {
+                        if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
+                        return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
+                      }).map(size => (
+                        <th key={size} className="p-2 border-r border-gray-300 font-bold text-center bg-gray-50">{size}</th>
+                      ))}
+                      <th className="p-2 font-black text-center bg-gray-200">TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border-r border-gray-300 font-bold bg-gray-50">Cantidad</td>
+                      {dynamicSizes.filter(size => {
+                        if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
+                        return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
+                      }).map(size => {
+                        let qty = 0;
+                        if (item.has_personalization) {
+                          qty = item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
+                        } else {
+                          qty = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
+                        }
+                        return (
+                          <td key={size} className="p-2 border-r border-gray-300 text-center font-bold text-[var(--color-primary)]">
+                            {qty}
+                          </td>
+                        );
+                      })}
+                      <td className="p-2 text-center font-black bg-gray-100">
+                        {item.has_personalization ? (item.order_item_persons?.length || 0) : (item.order_item_sizes?.reduce((sum: number, s: any) => sum + s.quantity, 0) || 0)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-            
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="mt-10">
-              <div className="flex items-center justify-between mb-6 px-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-1 h-8 bg-[var(--color-primary)] rounded-full"></div>
-                  <h4 className="font-headline text-lg font-extrabold uppercase tracking-tight text-[var(--color-on-surface)]">Mapa de Talles & Cantidades</h4>
-                </div>
-                <div className="bg-[var(--color-inverse-surface)] text-[var(--color-inverse-on-surface)] px-5 py-2 rounded-2xl text-xs font-black shadow-xl shadow-black/20 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm">inventory_2</span>
-                  Total: {item.has_personalization ? (item.order_item_persons?.length || 0) : (item.order_item_sizes?.reduce((sum: number, s: any) => sum + s.quantity, 0) || 0)} Prendas
-                </div>
-              </div>
 
-              <div className="overflow-hidden border border-[var(--color-outline-variant)]/20 rounded-2xl bg-white shadow-xl">
-                <div className="flex bg-[var(--color-surface-container-high)] border-b border-[var(--color-outline-variant)]/20">
-                  {dynamicSizes.filter(size => {
-                    if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
-                    return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
-                  }).map(size => (
-                    <div key={size} className="flex-1 min-w-[60px] text-center py-2 text-[10px] font-black uppercase tracking-widest border-r border-[var(--color-outline-variant)]/10 last:border-r-0">
-                      {size}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-end">
-                  {dynamicSizes.filter(size => {
-                    if (item.has_personalization) return item.order_item_persons?.some((p: any) => p.size === size);
-                    return item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0);
-                  }).map(size => {
-                    let qty = 0;
-                    if (item.has_personalization) {
-                      qty = item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
-                    } else {
-                      qty = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-                    }
-                    
-                    return (
-                      <div key={size} className="flex-1 min-w-[60px] text-center py-4 border-r border-[var(--color-outline-variant)]/10 last:border-r-0 hover:bg-[var(--color-primary-container)]/5 transition-colors">
-                        <span className="text-2xl font-headline font-black text-[var(--color-on-surface)]">
-                          {qty}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+            {/* Admin Comment per Item */}
+            <div className="mt-6 pt-6 border-t border-[var(--color-outline-variant)]/10">
+              <h5 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3">Comentario del Administrador para esta Prenda</h5>
+              <textarea
+                className="input-field py-2 text-xs w-full"
+                placeholder="Ej: Prioridad alta, verificar colores, etc."
+                value={item.admin_comment || ''}
+                onChange={(e) => handleSpecChange(item.id, 'admin_comment', e.target.value)}
+                onBlur={(e) => handleSpecBlur(item.id, 'admin_comment', e.target.value)}
+                rows={2}
+              />
             </div>
 
             {item.has_personalization && item.order_item_persons?.length > 0 && (
@@ -671,30 +1026,29 @@ const AdminOrderDetails = () => {
                   </h4>
                   <div className="h-px flex-1 bg-[var(--color-outline-variant)]/20"></div>
                 </div>
-                
-                <div className="overflow-hidden border border-[var(--color-outline-variant)]/20 rounded-2xl bg-white shadow-sm">
-                  <table className="w-full text-left border-collapse">
+                <div className="border border-gray-300 bg-white">
+                  <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-[var(--color-surface-container-high)] border-b border-[var(--color-outline-variant)]/20">
-                        <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)] border-r border-[var(--color-outline-variant)]/10">Nº</th>
-                        <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)] border-r border-[var(--color-outline-variant)]/10">Talle</th>
-                        <th className="p-3 font-label text-[10px] uppercase font-black tracking-widest text-[var(--color-on-surface-variant)]">Nombre a Estampar</th>
+                      <tr className="bg-gray-100 border-b border-gray-300">
+                        <th className="p-2 font-black uppercase text-[9px] opacity-70 border-r border-gray-300 w-16 text-center">Nº</th>
+                        <th className="p-2 font-black uppercase text-[9px] opacity-70 border-r border-gray-300 w-16 text-center">Talle</th>
+                        <th className="p-2 font-black uppercase text-[9px] opacity-70">Nombre a Estampar</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--color-outline-variant)]/10">
+                    <tbody className="divide-y divide-gray-200">
                       {item.order_item_persons.map((p: any, pIdx: number) => {
                         const isShorts = item.garment_type_name?.toLowerCase().includes('pantalón') || item.garment_type_name?.toLowerCase().includes('short');
                         return (
-                          <tr key={pIdx} className="hover:bg-[var(--color-primary-container)]/5 transition-colors">
-                            <td className="p-3 font-headline font-black text-xl text-[var(--color-primary)] bg-[var(--color-surface-container-lowest)] border-r border-[var(--color-outline-variant)]/10 w-20 text-center">
+                          <tr key={pIdx} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-2 font-black text-lg text-[var(--color-primary)] border-r border-gray-300 text-center">
                               {p.person_number || '—'}
                             </td>
-                            <td className="p-3 font-bold text-sm w-24 text-center border-r border-[var(--color-outline-variant)]/10">
-                              <span className="bg-[var(--color-surface-container-high)] px-3 py-1 rounded-full">{p.size}</span>
+                            <td className="p-2 font-bold text-center border-r border-gray-300">
+                              {p.size}
                             </td>
-                            <td className="p-3 font-headline font-extrabold text-lg uppercase tracking-tight text-[var(--color-on-surface)]">
+                            <td className="p-2 font-extrabold text-md uppercase tracking-tight text-gray-800">
                               {isShorts ? (
-                                <span className="text-[10px] text-[var(--color-on-surface-variant)]/30 italic font-black uppercase tracking-widest">Sin Nombre (Pantalón)</span>
+                                <span className="text-[10px] text-gray-400 italic font-black uppercase tracking-widest">Sin Nombre (Pantalón)</span>
                               ) : (
                                 p.person_name || '—'
                               )}
@@ -707,119 +1061,108 @@ const AdminOrderDetails = () => {
                 </div>
               </div>
             )}
-            </div>
             {item.notes && (
-              <div className="mt-4 bg-[var(--color-surface-container-high)] text-[var(--color-on-surface-variant)] p-3 rounded text-sm">
-                <strong>Obs:</strong> {item.notes}
+              <div className="mt-4 bg-gray-50 border border-gray-300 text-gray-700 p-3 text-xs">
+                <span className="font-black uppercase text-[9px] opacity-70 mr-2">Observaciones Cliente:</span> {item.notes}
               </div>
             )}
           </div>
-          );
-        })}
-      </div>
+        );
+      })}
+    </div>
 
-      {/* PDF Preview Modal */}
-      {showPdfPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Vista Previa - Ficha de Producción</h2>
-              <button 
-                onClick={() => setShowPdfPreview(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                ×
-              </button>
+      {/* BOTONES DE ACCIÓN AL FINAL */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--color-outline-variant)]/20 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] opacity-60">Total Pedido</span>
+              <span className="font-headline text-lg font-black text-[var(--color-primary)]">{totalQuantity} <span className="text-xs font-normal">prendas</span></span>
             </div>
-            
-            <div className="p-6 max-h-[60vh] overflow-auto">
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <p className="text-sm text-gray-600 mb-4">
-                  Esta es la ficha de producción que se enviará a la fábrica. Revisa que toda la información sea correcta.
-                </p>
-                
-                {/* PDF Preview Content - Simplified version */}
-                <div className="bg-white p-6 rounded border shadow-sm">
-                  <div className="text-center mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">ALTIV - FICHA DE PRODUCCIÓN</h3>
-                    <p className="text-sm text-gray-600 mt-2">
-                      Cliente: {order.profiles?.team_name || order.profiles?.name} | 
-                      Fecha: {new Date().toLocaleDateString()} | 
-                      Pedido: {order.name}
-                    </p>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <h4 className="font-bold text-gray-900 mb-3">RESUMEN DE PRENDAS Y TALLES</h4>
-                    <table className="w-full border-collapse border border-gray-300 text-xs">
-                      <thead>
-                        <tr className="bg-gray-100">
-                          <th className="border border-gray-300 p-2 text-left">Prenda / Categoría</th>
-                          {dynamicSizes.filter(size => 
-                            order.order_items.some((item: any) =>
-                              item.has_personalization
-                                ? item.order_item_persons?.some((p: any) => p.size === size)
-                                : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
-                            )
-                          ).map(size => (
-                            <th key={size} className="border border-gray-300 p-2 text-center">{size}</th>
-                          ))}
-                          <th className="border border-gray-300 p-2 text-center">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {order.order_items.map((item: any) => {
-                          const sizesRow = dynamicSizes.filter(size => 
-                            order.order_items.some((item: any) =>
-                              item.has_personalization
-                                ? item.order_item_persons?.some((p: any) => p.size === size)
-                                : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
-                            )
-                          ).map((size: string) => {
-                            const qty = item.has_personalization
-                              ? item.order_item_persons?.filter((p: any) => p.size === size).length || 0
-                              : item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-                            return qty;
-                          });
-                          const rowTotal = sizesRow.reduce((sum: number, value: number) => sum + value, 0);
-                          return (
-                            <tr key={item.id}>
-                              <td className="border border-gray-300 p-2 font-medium">
-                                {item.garment_types?.name} {item.category}
-                              </td>
-                              {sizesRow.map((qty: number, idx: number) => (
-                                <td key={idx} className="border border-gray-300 p-2 text-center">{qty || '-'}</td>
-                              ))}
-                              <td className="border border-gray-300 p-2 text-center font-bold">{rowTotal}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div className="text-xs text-gray-500 mt-4">
-                    <p><strong>Total de prendas:</strong> {totalQuantity}</p>
-                    <p className="mt-2">Esta ficha incluye toda la información técnica necesaria para la producción.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-              <button 
-                onClick={() => setShowPdfPreview(false)}
-                className="btn btn-secondary px-6 py-2"
-              >
-                Revisar Después
-              </button>
+            <div className="h-8 w-px bg-[var(--color-outline-variant)]/20 mx-2"></div>
+            <button 
+              onClick={handlePreviewClick}
+              className="px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition-all"
+            >
+              <span className="material-symbols-outlined text-sm">visibility</span>
+              Vista Previa PDF
+            </button>
+            <button 
+              onClick={exportToPDF}
+              className="px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition-all shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">download</span>
+              Descargar PDF
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {order.status === 'confirmed' && (
               <button 
                 onClick={confirmSendToProduction}
                 disabled={updatingStatus}
-                className="btn btn-primary px-6 py-2 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-[var(--color-primary)] text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
               >
-                {updatingStatus ? 'Enviando...' : 'Confirmar y Enviar a Fábrica'}
+                <span className="material-symbols-outlined">{updatingStatus ? 'hourglass_empty' : 'factory'}</span>
+                {updatingStatus ? 'Procesando...' : 'Enviar a Fábrica'}
               </button>
+            )}
+            {order.status === 'in_production' && (
+              <button 
+                onClick={finalizeOrder}
+                disabled={updatingStatus}
+                className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all active:scale-95"
+              >
+                <span className="material-symbols-outlined text-sm">{updatingStatus ? 'hourglass_empty' : 'check_circle'}</span>
+                {updatingStatus ? 'Procesando...' : 'Finalizar Pedido'}
+              </button>
+            )}
+            {order.status === 'delivered' && (
+              <div className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-gray-100 text-gray-500 cursor-not-allowed">
+                <span className="material-symbols-outlined">verified</span>
+                Pedido Finalizado
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showPdfPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2 md:p-6">
+          <div className="bg-white rounded-2xl w-full h-full flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Vista Previa - Ficha de Producción</h2>
+              <div className="flex gap-2">
+                  <button 
+                    onClick={exportToPDF}
+                    className="btn btn-primary px-4 py-1.5 text-sm"
+                  >
+                    <span className="material-symbols-outlined mr-1 text-sm">download</span>
+                    Descargar
+                  </button>
+                  <button 
+                    onClick={() => {
+                        setShowPdfPreview(false);
+                        if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+                        setPdfUrl(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-800 font-bold px-2 text-xl"
+                  >
+                    ×
+                  </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden">
+              {pdfUrl ? (
+                <iframe 
+                  src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+                  className="w-full h-full border-none"
+                  title="PDF Preview"
+                />
+              ) : (
+                <div className="p-12 text-center animate-pulse">Generando vista previa...</div>
+              )}
             </div>
           </div>
         </div>

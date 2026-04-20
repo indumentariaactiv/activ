@@ -201,11 +201,7 @@ const ClientOrderDetails = () => {
 
               <div className="p-6 md:p-8">
                 {/* Secondary Specs Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 bg-[var(--color-surface-container-lowest)] p-4 rounded-2xl border border-[var(--color-outline-variant)]/5">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Color Base</span>
-                    <p className="font-bold text-sm uppercase">{item.base_color || 'No especificado'}</p>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8 bg-[var(--color-surface-container-lowest)] p-4 rounded-2xl border border-[var(--color-outline-variant)]/5">
                   {item.sleeve_type && item.garment_types?.name?.toLowerCase().includes('remera') && (
                     <div className="space-y-1">
                       <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tipo Manga</span>
@@ -219,12 +215,10 @@ const ClientOrderDetails = () => {
                     </div>
                   )}
                   <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Tela sugerida</span>
-                    <p className="font-bold text-sm uppercase">{item.fabric_type || 'Set de Poliéster'}</p>
+                    <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] tracking-widest">Cantidad total</span>
+                    <p className="font-bold text-sm uppercase">{itemsCount} prendas</p>
                   </div>
                 </div>
-
-                {/* Quantitative Section */}
                 <div className="rounded-2xl border border-[var(--color-outline-variant)]/10 overflow-hidden">
                   {isPersonalized ? (
                     <table className="w-full text-xs text-left border-collapse">

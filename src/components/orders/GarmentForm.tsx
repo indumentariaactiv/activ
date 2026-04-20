@@ -38,7 +38,6 @@ export interface GarmentData {
 interface GarmentFormProps {
   initialData?: GarmentData;
   types: any[];
-  existingItems?: GarmentData[];
   onSave: (garment: GarmentData) => void;
   onCancel: () => void;
 }
@@ -70,6 +69,19 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
   const [persons, setPersons] = useState<PersonRow[]>(initialData?.persons || []);
   const [singleQuantity, setSingleQuantity] = useState<number>(initialData?.sizes?.[0]?.quantity || 0);
 
+  // For "otros" (bolso, botinero, bandera): auto-select the single category
+  useEffect(() => {
+    if (!selectedTypeId) return;
+    const typeObj = types.find(t => t.id === selectedTypeId);
+    if (!typeObj) return;
+    const typeName = typeObj.name.toLowerCase();
+    const isOtros = ['bandera', 'bolso', 'botinero'].some(k => typeName.includes(k));
+    if (isOtros) {
+      const firstCat = Object.keys(typeObj.categories)[0] || 'Cantidad';
+      setSelectedCategory(firstCat);
+    }
+  }, [selectedTypeId, types]);
+
   // When type or category changes, reset grids if no initial data
   useEffect(() => {
     if (!initialData && selectedTypeId && selectedCategory) {
@@ -98,8 +110,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
     
     setUploading(true);
     const loadingToast = toast.loading('Subiendo archivo...');
-    const rawExt = file.name.split('.').pop() || 'jpg';
-    const fileExt = rawExt.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+    const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
     const cleanName = Math.random().toString(36).substring(2, 10);
     const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
     const filePath = `uploads/${fileName}`;
@@ -108,13 +119,16 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       const { error: uploadError } = await supabase.storage.from('custom_designs').upload(filePath, file);
       if (uploadError) throw uploadError;
       
-      const { data } = supabase.storage.from('custom_designs').getPublicUrl(filePath);
-      setCustomDesignUrl(data.publicUrl);
+      const { data: urlData } = supabase.storage.from('custom_designs').getPublicUrl(filePath);
+      if (!urlData?.publicUrl) throw new Error('No se pudo generar la URL pública');
+
+      setCustomDesignUrl(urlData.publicUrl);
       toast.success('Archivo subido correctamente', { id: loadingToast });
     } catch (error: any) {
-      console.error(error);
-      toast.error(`Error al subir archivo: ${error.message || "Verifica tu conexión y reintentá."}`, { id: loadingToast });
+      console.error('Upload error:', error);
+      toast.error(`Error al subir archivo: ${error.message || 'Verifica tu conexión y reintentá.'}`, { id: loadingToast });
     } finally {
+      event.target.value = '';
       setUploading(false);
     }
   };
@@ -137,6 +151,8 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
   const isBotinero = productName.includes('botinero');
   const isBolso = isBolsoDeportivo || isBolsoPaletero || isBotinero;
   const noSizesMode = isBandera || isBolso;
+  // "Otros": accesorios que no necesitan selector de género
+  const isOtros = isBandera || isBolso;
 
   const [newPersonSize, setNewPersonSize] = useState('');
   const [newPersonName, setNewPersonName] = useState('');
@@ -145,7 +161,8 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
   const [newPersonQuantity, setNewPersonQuantity] = useState(1);
 
   const addPersonRow = () => {
-    if (!isShorts && !newPersonName.trim()) return;
+    const requiresName = !isShorts && selectedCategory !== 'Unisex';
+    if (requiresName && !newPersonName.trim()) return;
     
     const qty = Math.max(1, newPersonQuantity);
     const newRows: any[] = [];
@@ -188,6 +205,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       return;
     }
 
+    const selectedFabricType = '';
     const finalObservations = (isShorts && pockets) ? `${pockets} - ${observations}` : observations;
     const finalSizes = hasPersonalization
       ? []
@@ -204,7 +222,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       sleeve_type: sleeveType,
       sleeve_color: sleeveColor,
       collar_type: (isRemera || isCampera || isBuzo || isBandera) ? collarType : undefined,
-      fabric_type: undefined, // Client doesn't select fabric - admin does
+      fabric_type: selectedFabricType,
       has_personalization: hasPersonalization,
       design_id: undefined,
       design_image_url: undefined,
@@ -224,7 +242,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Basic Selections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid gap-4 ${isOtros ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           <div className="flex flex-col gap-2">
             <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Prenda</label>
             <select className="input-field" required value={selectedTypeId} onChange={e => { setSelectedTypeId(e.target.value); setSelectedCategory(''); }}>
@@ -244,7 +262,8 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
             </select>
           </div>
 
-          {!noSizesMode && (
+          {/* Ocultar selector de género para accesorios — se auto-selecciona */}
+          {!isOtros && (
             <div className="flex flex-col gap-2">
               <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Género / Contextura</label>
               <select className="input-field" required disabled={!selectedTypeId} value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
@@ -344,28 +363,14 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
         )}
 
         {isBandera && (
-          <div className="flex flex-col gap-4 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
-            <div className="flex flex-col gap-2">
-              <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Medida de Bandera</label>
-              <select className="input-field" value={collarType} onChange={e => setCollarType(e.target.value)}>
-                <option value="" disabled>Seleccione medida...</option>
-                {['1m x 1.5m', '2m x 1.5m', '3m x 1.5m', '4m x 1.5m', '5m x 1.5m'].map(size => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Cantidad de Unidades</label>
-              <input
-                type="number"
-                min="1"
-                className="input-field text-center font-bold text-lg p-3"
-                value={singleQuantity}
-                onChange={e => setSingleQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                placeholder="1"
-              />
-            </div>
+          <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
+            <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Medida</label>
+            <select className="input-field" value={collarType} onChange={e => setCollarType(e.target.value)}>
+              <option value="" disabled>Seleccione medida...</option>
+              {['1m x 1.5m', '2m x 1.5m', '3m x 1.5m', '4m x 1.5m', '5m x 1.5m'].map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -398,7 +403,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
               
               {customDesignUrl && (
                 <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-center gap-6 animate-in fade-in zoom-in-95 shadow-sm">
-                  {customDesignUrl && (customDesignUrl.includes('.jpeg') || customDesignUrl.includes('.jpg') || customDesignUrl.includes('.gif') || customDesignUrl.includes('.png') || customDesignUrl.includes("supabase.co")) ? (
+                  {customDesignUrl.match(/\.(jpeg|jpg|gif|png)$/i) || customDesignUrl.includes("supabase.co") ? (
                     <img src={customDesignUrl} alt="Preview" className="w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5" />
                   ) : (
                      <div className="w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner">
@@ -459,7 +464,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                               <tr key={p.id} className="hover:bg-[var(--color-surface-container-highest)]/50 transition-colors">
                                 <td className="p-3 text-sm font-black text-[var(--color-primary)]">{p.size}</td>
                                 {!isShorts && <td className="p-3 text-sm font-bold">{p.name}</td>}
-                                <td className="p-3 text-sm font-headline font-black text-center">{p.number || '-'}</td>
+                                <td className="p-3 text-sm font-headline font-black text-center text-[var(--color-primary)]">{p.number || '-'}</td>
                                 <td className="p-3 text-[10px] uppercase font-bold text-[var(--color-on-surface-variant)]">{p.role || '-'}</td>
                                 <td className="p-3 text-right">
                                   <button type="button" onClick={() => removePersonRow(p.id)} className="text-[var(--color-error)] hover:bg-[var(--color-error-container)] p-1.5 rounded-full transition-colors">
@@ -487,7 +492,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                                key={s}
                                type="button"
                                onClick={() => setNewPersonSize(s)}
-                               className={`min-w-[40px] py-1.5 rounded-lg border-2 font-bold transition-all text-xs ${newPersonSize === s || (!newPersonSize && s === availableSizesForCategory[0]) ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-md' : 'border-[var(--color-outline-variant)]/10 hover:border-[var(--color-primary)]/30 bg-[var(--color-surface-container-lowest)]'}`}
+                               className={`min-w-[52px] min-h-[44px] px-2 py-2 rounded-lg border-2 font-bold transition-all text-sm ${newPersonSize === s || (!newPersonSize && s === availableSizesForCategory[0]) ? 'border-[var(--color-primary)] bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-md' : 'border-[var(--color-outline-variant)]/10 hover:border-[var(--color-primary)]/30 bg-[var(--color-surface-container-lowest)]'}`}
                              >
                                {s}
                              </button>
@@ -499,6 +504,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                          <div>
                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest">2. Nombre a Estampar</label>
                            <input id="new-person-name" type="text" className="input-field text-center font-bold" placeholder="NOMBRE" value={newPersonName} onChange={e => setNewPersonName(e.target.value.toUpperCase())} />
+                           {selectedCategory === 'Unisex' && (
+                             <p className="text-[10px] text-[var(--color-on-surface-variant)] mt-1">Nombre opcional para prendas Unisex.</p>
+                           )}
                          </div>
                        )}
                        <div className="grid grid-cols-3 gap-3 mt-4">
@@ -519,7 +527,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                        <button 
                         type="button" 
                         onClick={addPersonRow} 
-                        disabled={!isShorts && !newPersonName.trim()} 
+                        disabled={!isShorts && selectedCategory !== 'Unisex' && !newPersonName.trim()} 
                         className="btn w-full bg-[var(--color-primary)] text-[var(--color-on-primary)] font-black py-4 rounded-xl shadow-lg hover:shadow-[0_0_20px_var(--color-primary-container)] disabled:opacity-50 transition-all mt-2"
                         style={{ background: 'linear-gradient(135deg, var(--color-primary), #00a05a)' }}
                        >
@@ -547,25 +555,24 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-3">
+                    <div className={`grid gap-3 ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'grid-cols-[repeat(auto-fill,minmax(72px,1fr))]' : 'grid-cols-[repeat(auto-fit,minmax(60px,1fr))]'}`}>
                       {sizeGrid.map(sg => (
-                        <div key={sg.size} className="flex flex-col items-center bg-[var(--color-surface-container-lowest)] py-2 px-2 rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all min-w-[60px]">
-                          <span className="font-headline font-black text-base text-[var(--color-on-surface)] mb-2 px-2 py-1 bg-gray-100 rounded-md whitespace-nowrap text-center min-w-[32px]">{sg.size}</span>
+                        <div key={sg.size} className={`flex flex-col items-center bg-[var(--color-surface-container-lowest)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'py-3 px-2 min-w-[68px]' : 'py-2 px-2 min-w-[60px]'}`}>
+                          <span className={`font-headline font-black text-[var(--color-on-surface)] mb-2 px-2 py-1.5 bg-gray-100 rounded-md whitespace-nowrap text-center w-full block ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'text-sm' : 'text-base min-w-[32px]'}`}>{sg.size}</span>
                           <input 
                             type="number" 
                             min="0"
                             className="input-field text-center font-bold text-lg p-2 w-full"
-                            value={sg.quantity || ''}
+                            value={sg.quantity}
                             onChange={e => handleGridChange(sg.size, parseInt(e.target.value) || 0)}
-                            placeholder="0"
                           />
                         </div>
                       ))}
                     </div>
                     {/* Total automático */}
-                    <div className="bg-[var(--color-primary-container)] border-2 border-[var(--color-primary)] rounded-xl p-4 flex justify-between items-center shadow-sm">
-                      <span className="font-bold text-sm uppercase tracking-widest text-[var(--color-primary)]">Total de Prendas</span>
-                      <span className="font-headline font-black text-3xl text-[var(--color-primary)]">{sizeGrid.reduce((sum, sg) => sum + (sg.quantity || 0), 0)}</span>
+                    <div className="bg-[var(--color-primary-container)] border-2 border-[var(--color-primary)] rounded-lg p-3 flex justify-between items-center">
+                      <span className="font-bold text-[var(--color-primary)]">TOTAL PRENDAS:</span>
+                      <span className="font-headline font-black text-2xl text-[var(--color-primary)]">{sizeGrid.reduce((sum, sg) => sum + (sg.quantity || 0), 0)}</span>
                     </div>
                   </div>
                 )}
@@ -579,9 +586,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
           <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">
             OBSERVACIONES / EXCEPCIONES PARA ESTE TIPO DE PRENDA
           </label>
-          <textarea
-            className="input-field resize-none"
-            rows={2}
+          <textarea 
+            className="input-field resize-none" 
+            rows={2} 
             placeholder="Ej: El arquero (L) lleva el buzo en otro color."
             value={observations}
             onChange={e => setObservations(e.target.value)}
