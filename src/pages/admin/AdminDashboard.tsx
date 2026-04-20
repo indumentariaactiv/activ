@@ -164,7 +164,7 @@ const AdminDashboard = () => {
                                    return (
                                      <>
                                        <div className="flex gap-1"><span className="font-bold">Nombre:</span> <span>{shipInfo?.full_name || o.profiles?.team_name || o.profiles?.name || '-'}</span></div>
-                                       <div className="flex gap-1"><span className="font-bold">Email:</span> <span className="truncate">{o.profiles?.email || '-'}</span></div>
+                                       <div className="flex gap-1"><span className="font-bold">Email:</span> <span className="truncate">{shipInfo?.email || o.profiles?.email || '-'}</span></div>
                                        <div className="flex gap-1"><span className="font-bold">Teléfono:</span> <span>{shipInfo?.phone || '-'}</span></div>
                                        <div className="flex gap-1"><span className="font-bold">Courier:</span> <span>{shipInfo?.preferred_carrier || '-'}</span></div>
                                      </>

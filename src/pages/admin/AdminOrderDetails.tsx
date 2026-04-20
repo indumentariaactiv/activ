@@ -89,7 +89,7 @@ const AdminOrderDetails = () => {
         .select(`
           id, name, status, created_at, confirmed_at, client_id,
           profiles (name, team_name, email),
-          client_shipping_info (full_name, phone, shipping_address, preferred_carrier, order_purpose),
+          client_shipping_info (full_name, email, phone, shipping_address, preferred_carrier, order_purpose),
           admin_comments (comment, created_at, admin_id),
           admin_designs (design_url, file_name, created_at),
           order_items (
@@ -168,15 +168,16 @@ const AdminOrderDetails = () => {
 
   const confirmSendToProduction = async () => {
     setShowPdfPreview(false);
-    setShowManufacturingModal(true);
+    await updateOrderStatus('in_production');
   };
 
-  const sendToProductionWithCode = async () => {
+  const finalizeOrderWithCode = async () => {
     if (!manufacturingCode.trim()) {
       toast.error('Debes ingresar el código de fabricación');
       return;
     }
     setShowManufacturingModal(false);
+
     // Update all order items with the manufacturing code
     const updates = order.order_items.map((item: any) => 
       supabase
@@ -185,15 +186,14 @@ const AdminOrderDetails = () => {
         .eq('id', item.id)
     );
     await Promise.all(updates);
-    await updateOrderStatus('in_production');
     setManufacturingCode('');
+    await updateOrderStatus('delivered');
   };
 
   const finalizeOrder = async () => {
-    // Check if all items have manufacturing code
     const missingCode = order.order_items.some((item: any) => !item.manufacturing_code);
     if (missingCode) {
-      toast.error('Todos los items deben tener código de fabricación antes de finalizar');
+      setShowManufacturingModal(true);
       return;
     }
     if (!window.confirm("¿Seguro que deseas marcar el pedido como FINALIZADO? Esta acción indica que el pedido ya fue entregado.")) return;
@@ -653,7 +653,10 @@ const AdminOrderDetails = () => {
             <div className="grid grid-cols-1 gap-1 mt-1 text-xs">
               <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
                 <span className="material-symbols-outlined text-[14px]">mail</span>
-                {order.profiles?.email || 'No especificado'}
+                {(() => {
+                   const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
+                   return shipInfo?.email || order.profiles?.email || 'No especificado';
+                })()}
               </div>
               <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
                 <span className="material-symbols-outlined text-[14px]">call</span>
@@ -1225,10 +1228,10 @@ const AdminOrderDetails = () => {
                 Cancelar
               </button>
               <button
-                onClick={sendToProductionWithCode}
+                onClick={finalizeOrderWithCode}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Enviar a Producción
+                Finalizar Pedido
               </button>
             </div>
           </div>

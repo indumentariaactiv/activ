@@ -152,12 +152,7 @@ const ClientOrderDetails = () => {
               <span className="material-symbols-outlined text-[1.1rem]">arrow_back</span>
               Dashboard
             </Link>
-            {isEditable && (
-              <Link to={`/cliente/pedido/${order.id}/editar?step=2`} className="btn btn-primary bg-indigo-600 text-white shadow-lg shadow-indigo-200 h-10 text-xs">
-                <span className="material-symbols-outlined text-[1.1rem]">edit</span>
-                Seguir Editando
-              </Link>
-            )}
+
           </div>
         </div>
       </div>
