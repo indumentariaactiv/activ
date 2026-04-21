@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import logo from '../../assets/logo.png';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { setLoading: setGlobalLoading, profile, user, isLoading: isGlobalLoading } = useAppStore();
+  const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
 
   useEffect(() => {
     // Clear any stale loading state when hitting the login page
@@ -139,10 +141,20 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center flex flex-col gap-4">
           <p className="text-sm text-on-surface-variant">
             ¿No tienes cuenta? <Link to="/register" className="font-bold text-primary hover:underline">Regístrate aquí</Link>
           </p>
+
+          {isInstallable && !isInstalled && (
+            <button 
+              onClick={handleInstall}
+              className="flex items-center justify-center gap-2 mx-auto px-4 py-2 rounded-full bg-surface-container-highest text-primary text-xs font-bold border border-primary/20 hover:bg-primary/10 transition-colors animate-pulse"
+            >
+              <span className="material-symbols-outlined text-[1.1rem]">download_for_offline</span>
+              Instalar Aplicación
+            </button>
+          )}
         </div>
       </div>
     </div>
