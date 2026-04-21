@@ -221,7 +221,14 @@ const NewOrder = () => {
     }
 
     setLoading(true);
-    const loadingToast = toast.loading('Guardando pedido...');
+    const loadingToast = toast.loading('Guardando pedido (Paso 1/3)...');
+    
+    // Safety: prevent closing tab while saving
+    const preventClose = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', preventClose);
     
     try {
     // Usar getSession() en lugar de getUser() para evitar llamadas a red que pueden colgar
@@ -278,6 +285,7 @@ const NewOrder = () => {
         if (insertError) throw insertError;
         orderData = insertData;
 
+        toast.loading('Iniciando datos de envío (Paso 2/3)...', { id: loadingToast });
         const { error: shippingError } = await supabase
           .from('client_shipping_info')
           .insert({
@@ -348,8 +356,10 @@ const NewOrder = () => {
       }
 
       // 3. Insert items sequentially with correct fabric_group assignment
+      toast.loading(`Certificando prendas (Paso 3/3: 0/${itemsWithFabricGroup.length})...`, { id: loadingToast });
       let insertionError = null;
       const newlyInsertedIds: string[] = [];
+      let count = 0;
 
       for (const item of itemsWithFabricGroup) {
         try {
@@ -376,6 +386,8 @@ const NewOrder = () => {
 
             if (itemError) throw itemError;
             newlyInsertedIds.push(itemData.id);
+            count++;
+            toast.loading(`Subiendo prendas (${count}/${itemsWithFabricGroup.length})...`, { id: loadingToast });
 
             // 4. Insert Sizes OR Persons
             if (item.has_personalization && item.persons.length > 0) {
@@ -430,6 +442,7 @@ const NewOrder = () => {
       console.error("Error detallado al guardar:", error);
       toast.error(`Error al guardar: ${error.message || "Verifica la consola para más detalles."}`, { id: loadingToast });
     } finally {
+      window.removeEventListener('beforeunload', preventClose);
       setLoading(false);
     }
   };

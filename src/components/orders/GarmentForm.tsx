@@ -104,6 +104,14 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
     }
   }, [selectedTypeId, selectedCategory, types, initialData]);
 
+  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('El servidor tardó demasiado. Verificá tu conexión y reintentá.')), ms)
+      )
+    ]);
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -118,37 +126,42 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
 
     setUploading(true);
     const loadingToast = toast.loading('Subiendo archivo...');
-    const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-    const cleanName = Math.random().toString(36).substring(2, 10);
-    const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
-
-    // 2. Timeout: si Supabase no responde en 20s, cortar y mostrar error claro
-    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
-      Promise.race([
-        promise,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error('El servidor tardó demasiado. Verificá tu conexión y reintentá.')), ms)
-        )
-      ]);
-
+    
     try {
+      const fileExt = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+      const cleanName = Math.random().toString(36).substring(2, 10);
+      const fileName = `${Date.now()}-${cleanName}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      console.log('Starting upload to storage:', filePath);
+      
       const { error: uploadError } = await withTimeout(
-        supabase.storage.from('custom_designs').upload(filePath, file),
-        20000
+        supabase.storage.from('custom_designs').upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        }),
+        30000 // 30 seconds for non-compressed images
       );
-      if (uploadError) throw uploadError;
+
+      if (uploadError) {
+        console.error('Supabase storage error:', uploadError);
+        throw uploadError;
+      }
       
       const { data: urlData } = supabase.storage.from('custom_designs').getPublicUrl(filePath);
-      if (!urlData?.publicUrl) throw new Error('No se pudo generar la URL pública');
+      if (!urlData?.publicUrl) throw new Error('No se pudo generar la URL pública del archivo.');
 
+      console.log('Upload successful:', urlData.publicUrl);
       setCustomDesignUrl(urlData.publicUrl);
       toast.success('Archivo subido correctamente', { id: loadingToast });
     } catch (error: any) {
-      console.error('Upload error:', error);
-      toast.error(`Error al subir: ${error.message || 'Verificá tu conexión y reintentá.'}`, { id: loadingToast });
+      console.error('Upload catch error:', error);
+      const errorMsg = error.message === 'Failed to fetch' 
+        ? 'Error de conexión. Verificá tu internet e intentá de nuevo.'
+        : error.message || 'Error desconocido al subir.';
+      toast.error(`Error: ${errorMsg}`, { id: loadingToast });
     } finally {
-      event.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setUploading(false);
     }
   };

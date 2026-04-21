@@ -13,6 +13,8 @@ import NewOrder from './pages/client/NewOrder';
 import ClientOrderDetails from './pages/client/ClientOrderDetails';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOrderDetails from './pages/admin/AdminOrderDetails';
+import ReloadPrompt from './components/common/ReloadPrompt';
+
 
 function App() {
   const { setUser, setProfile, setLoading, isLoading } = useAppStore();
@@ -23,13 +25,13 @@ function App() {
   useEffect(() => {
     let isSubscribed = true;
 
-    // Safety fallback: if auth takes too long, force unlock after 3s
+    // Safety fallback: if auth takes too long, force unlock after 5s (increased for mobile)
     const timeoutId = setTimeout(() => {
       if (useAppStore.getState().isLoading) {
         console.warn("Auth initialization timed out. Forcing app unlock.");
         setLoading(false);
       }
-    }, 3000);
+    }, 5000);
 
     const handleSession = async (session: any, event: string) => {
       if (!isSubscribed) return;
@@ -193,6 +195,7 @@ function App() {
         </Routes>
       )}
       <Toaster position="top-right" />
+      <ReloadPrompt />
     </Router>
   );
 }

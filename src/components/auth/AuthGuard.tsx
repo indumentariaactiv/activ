@@ -23,7 +23,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
         setShowProfileError(true);
-      }, 6000);
+      }, 4000);
     } else {
       setShowProfileError(false);
       if (profileTimerRef.current) {
@@ -105,15 +105,27 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
             </div>
          </div>
 
-         <div className="flex gap-4">
-           <button 
-             onClick={() => window.location.reload()} 
-             disabled={isLoggingOut}
-             className="btn btn-tertiary disabled:opacity-50"
-           >
-             <span className="material-symbols-outlined text-[1.2rem]">refresh</span>
-             Reintentar
-           </button>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
+              }} 
+              disabled={isLoggingOut}
+              className="px-4 py-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hove:bg-amber-100 transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[1.2rem]">build</span>
+              Reparar Conexión
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              disabled={isLoggingOut}
+              className="btn btn-tertiary disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[1.2rem]">refresh</span>
+              Reintentar
+            </button>
            <button 
              onClick={logout} 
              disabled={isLoggingOut}

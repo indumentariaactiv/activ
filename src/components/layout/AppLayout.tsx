@@ -4,11 +4,15 @@ import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
+
 
 const AppLayout = () => {
   const { profile } = useAppStore();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { isInstallable, handleInstall } = usePWAInstall();
+
 
   const handleLogout = async () => {
     if (isLoggingOut) return; // Prevent duplicate clicks
@@ -71,7 +75,17 @@ const AppLayout = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {isInstallable && (
+            <button
+              onClick={handleInstall}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-primary-container)] text-[var(--color-primary)] border border-[var(--color-primary)]/20 hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm font-bold text-xs"
+            >
+              <span className="material-symbols-outlined text-lg">download_for_offline</span>
+              <span>Instalar App</span>
+            </button>
+          )}
           {profile?.role === 'admin' && (
+
             <span className="border border-[var(--color-primary)] text-[var(--color-primary)] bg-white text-[10px] uppercase font-bold px-2 py-0.5 rounded hidden sm:inline-block shadow-sm">Admin View</span>
           )}
           <button 
@@ -120,7 +134,19 @@ const AppLayout = () => {
             </Link>
           );
         })}
+        {isInstallable && (
+          <button 
+            onClick={handleInstall}
+            className="flex flex-col items-center gap-1 px-4 py-2 transition-all rounded-xl active:scale-95 text-[var(--color-primary)]"
+          >
+            <div className="p-1.5 rounded-xl bg-[var(--color-primary)] text-white shadow-lg animate-bounce">
+              <span className="material-symbols-outlined text-[1.5rem]">download_for_offline</span>
+            </div>
+            <span className="text-[10px] font-black tracking-wide">Instalar</span>
+          </button>
+        )}
       </nav>
+
 
     </div>
   );
