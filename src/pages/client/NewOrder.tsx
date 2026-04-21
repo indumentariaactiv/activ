@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, withTimeout } from '../../lib/supabase';
 import { GarmentForm } from '../../components/orders/GarmentForm';
 import type { GarmentData } from '../../components/orders/GarmentForm';
 import toast from 'react-hot-toast';
@@ -228,76 +228,100 @@ const NewOrder = () => {
       e.preventDefault();
       e.returnValue = '';
     };
-    window.addEventListener('beforeunload', preventClose);
     
     try {
-    // Usar getSession() en lugar de getUser() para evitar llamadas a red que pueden colgar
-    const { data: { session } } = await supabase.auth.getSession();
-    const authUser = session?.user;
-    if (!authUser) throw new Error("Sesión no encontrada. Por favor, recargá la página.");
+      window.addEventListener('beforeunload', preventClose);
+      
+      // Auth check with timeout to prevent hanging
+      console.log("Saving: STEP 1 - Checking session");
+      const { data: sessionData, error: sessionErr } = await withTimeout(supabase.auth.getSession(), 10000);
+
+      if (sessionErr) throw sessionErr;
+      const authUser = sessionData?.session?.user;
+      if (!authUser) throw new Error("Sesión no encontrada. Por favor, recargá la página.");
 
       // 1. Create or Update the Order
       let orderData: any;
       let oldItemIds: string[] = [];
 
       if (id) {
+        console.log("Saving: STEP 2 - Updating existing order", id);
         // Fetch existing items to delete LATER only if update succeeds
-        const { data: oldItemsData } = await supabase.from('order_items').select('id').eq('order_id', id);
-        if (oldItemsData) oldItemIds = oldItemsData.map(i => i.id);
+        const { data: oldItemsData, error: oldFetchErr } = await withTimeout<any>(
+          supabase.from('order_items').select('id').eq('order_id', id),
+          10000
+        );
+        if (oldFetchErr) console.warn("Could not fetch old item IDs:", oldFetchErr);
+        if (oldItemsData) oldItemIds = oldItemsData.map((i: any) => i.id);
 
-        const { data: updateData, error: updateError } = await supabase
-          .from('orders')
-          .update({ 
-            name: orderName,
-            status: 'draft' // Promote legacy 'pending' to 'draft' standard
-          })
-          .eq('id', id)
-          .select()
-          .single();
+        const { data: updateData, error: updateError } = await withTimeout<any>(
+          supabase
+            .from('orders')
+            .update({ 
+              name: orderName,
+              status: 'draft' 
+            })
+            .eq('id', id)
+            .select()
+            .single(),
+          15000
+        );
         if (updateError) throw updateError;
         orderData = updateData;
         
-        // Update or insert shipping info for the existing order
-        const { error: shippingError } = await supabase
-          .from('client_shipping_info')
-          .upsert({
-            order_id: orderData.id,
-            client_id: authUser.id,
-            full_name: fullName,
-            phone,
-            email,
-            shipping_address: shippingAddress,
-            preferred_carrier: preferredCarrier,
-            order_purpose: orderPurpose
-          }, { onConflict: 'order_id' });
+        console.log("Saving: STEP 3 - Upserting shipping info");
+        const { error: shippingError } = await withTimeout<any>(
+          supabase
+            .from('client_shipping_info')
+            .upsert({
+              order_id: orderData.id,
+              client_id: authUser.id,
+              full_name: fullName,
+              phone,
+              email,
+              shipping_address: shippingAddress,
+              preferred_carrier: preferredCarrier,
+              order_purpose: orderPurpose
+            }, { onConflict: 'order_id' }),
+          15000
+        );
         if (shippingError) throw shippingError;
         
       } else {
-        const { data: insertData, error: insertError } = await supabase
-          .from('orders')
-          .insert({
-            client_id: authUser.id,
-            name: orderName,
-            status: 'draft' // Standard draft status
-          })
-          .select()
-          .single();
+        console.log("Saving: STEP 2 - Creating new order");
+        const { data: insertData, error: insertError } = await withTimeout<any>(
+          supabase
+            .from('orders')
+            .insert({
+              client_id: authUser.id,
+              name: orderName,
+              status: 'draft'
+            })
+            .select()
+            .single(),
+          15000
+        );
         if (insertError) throw insertError;
+        if (!insertData) throw new Error("No se pudo crear el pedido base.");
         orderData = insertData;
 
+        console.log("Saving: STEP 3 - Inserting shipping info");
         toast.loading('Iniciando datos de envío (Paso 2/3)...', { id: loadingToast });
-        const { error: shippingError } = await supabase
-          .from('client_shipping_info')
-          .insert({
-            order_id: orderData.id,
-            client_id: authUser.id,
-            full_name: fullName,
-            phone,
-            email,
-            shipping_address: shippingAddress,
-            preferred_carrier: preferredCarrier,
-            order_purpose: orderPurpose
-          });
+        const { error: shippingError } = await withTimeout<any>(
+          supabase
+            .from('client_shipping_info')
+            .insert({
+              order_id: orderData.id,
+              client_id: authUser.id,
+              full_name: fullName,
+              phone,
+              email,
+              shipping_address: shippingAddress,
+              preferred_carrier: preferredCarrier,
+              order_purpose: orderPurpose
+            }),
+          15000
+        );
         if (shippingError) throw shippingError;
       }
 
@@ -356,6 +380,7 @@ const NewOrder = () => {
       }
 
       // 3. Insert items sequentially with correct fabric_group assignment
+      console.log("Saving: STEP 4 - Inserting items, total:", itemsWithFabricGroup.length);
       toast.loading(`Certificando prendas (Paso 3/3: 0/${itemsWithFabricGroup.length})...`, { id: loadingToast });
       let insertionError = null;
       const newlyInsertedIds: string[] = [];
@@ -363,26 +388,30 @@ const NewOrder = () => {
 
       for (const item of itemsWithFabricGroup) {
         try {
-            const { data: itemData, error: itemError } = await supabase
-              .from('order_items')
-              .insert({
-                order_id: orderData.id,
-                garment_type_id: item.garment_type_id,
-                category: item.category,
-                base_color: item.base_color,
-                sleeve_type: item.sleeve_type,
-                sleeve_color: item.sleeve_color,
-                fabric_type: item.fabric_type,
-                collar_type: item.collar_type,
-                armhole_color: item.armhole_color,
-                design_id: item.design_id,
-                custom_design_url: item.custom_design_url,
-                has_personalization: item.has_personalization,
-                notes: item.observations,
-                fabric_group: item.fabric_group
-              })
-              .select()
-              .single();
+            console.log(`Saving Item ${count + 1}/${itemsWithFabricGroup.length}:`, item.garment_type_name);
+            const { data: itemData, error: itemError } = await withTimeout<any>(
+              supabase
+                .from('order_items')
+                .insert({
+                  order_id: orderData.id,
+                  garment_type_id: item.garment_type_id,
+                  category: item.category,
+                  base_color: item.base_color,
+                  sleeve_type: item.sleeve_type,
+                  sleeve_color: item.sleeve_color,
+                  fabric_type: item.fabric_type,
+                  collar_type: item.collar_type,
+                  armhole_color: item.armhole_color,
+                  design_id: item.design_id,
+                  custom_design_url: item.custom_design_url,
+                  has_personalization: item.has_personalization,
+                  notes: item.observations,
+                  fabric_group: item.fabric_group
+                })
+                .select()
+                .single(),
+              20000
+            );
 
             if (itemError) throw itemError;
             newlyInsertedIds.push(itemData.id);
@@ -391,6 +420,7 @@ const NewOrder = () => {
 
             // 4. Insert Sizes OR Persons
             if (item.has_personalization && item.persons.length > 0) {
+              console.log("Saving Persons for Item", count);
               const personsToInsert = item.persons.map((p: any) => ({
                 order_item_id: itemData.id,
                 size: p.size,
@@ -398,9 +428,13 @@ const NewOrder = () => {
                 person_number: p.number,
                 role: p.role
               }));
-              const { error: pErr } = await supabase.from('order_item_persons').insert(personsToInsert);
+              const { error: pErr } = await withTimeout<any>(
+                supabase.from('order_item_persons').insert(personsToInsert),
+                15000
+              );
               if (pErr) throw pErr;
             } else if (!item.has_personalization && item.sizes.length > 0) {
+              console.log("Saving Sizes for Item", count);
               const sizesToInsert = item.sizes
                 .filter((s: any) => s.quantity > 0)
                 .map((s: any) => ({
@@ -409,7 +443,10 @@ const NewOrder = () => {
                   quantity: s.quantity
                 }));
               if (sizesToInsert.length > 0) {
-                const { error: sErr } = await supabase.from('order_item_sizes').insert(sizesToInsert);
+                const { error: sErr } = await withTimeout<any>(
+                  supabase.from('order_item_sizes').insert(sizesToInsert),
+                  15000
+                );
                 if (sErr) throw sErr;
               }
             }
@@ -421,16 +458,19 @@ const NewOrder = () => {
 
       // If an insertion error occurred, rollback newly inserted items
       if (insertionError) {
+        console.error("Critical insertion error, starting rollback");
         if (newlyInsertedIds.length > 0) {
            console.warn("Rollback: Deleting partially inserted items", newlyInsertedIds);
-           await supabase.from('order_items').delete().in('id', newlyInsertedIds);
+           await withTimeout<any>(supabase.from('order_items').delete().in('id', newlyInsertedIds), 10000);
         }
         throw insertionError;
       }
 
       // If all new items inserted successfully AND we are updating an existing draft, delete old ones
       if (id && oldItemIds.length > 0) {
-        await supabase.from('order_items').delete().in('id', oldItemIds);
+        console.log("Finalizing: Cleaning up old item records");
+        const { error: cleanupErr } = await withTimeout<any>(supabase.from('order_items').delete().in('id', oldItemIds), 15000);
+        if (cleanupErr) console.warn("Minor error during cleanup:", cleanupErr);
       }
 
       // 5. Success -> Redirect to the high-fidelity summary page

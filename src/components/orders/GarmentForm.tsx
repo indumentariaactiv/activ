@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, withTimeout } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 
 export interface PersonRow {
@@ -103,14 +103,6 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
       }
     }
   }, [selectedTypeId, selectedCategory, types, initialData]);
-
-  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
-    Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('El servidor tardó demasiado. Verificá tu conexión y reintentá.')), ms)
-      )
-    ]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
