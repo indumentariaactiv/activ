@@ -516,7 +516,8 @@ const NewOrder = () => {
                   Teléfono
                 </label>
                 <input
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
                   className="input-field"
                   placeholder="Ej: 11 1234-5678"
                   value={phone}

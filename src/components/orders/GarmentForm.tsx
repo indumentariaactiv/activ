@@ -266,7 +266,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
         <div className={`grid gap-4 ${isOtros ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           <div className="flex flex-col gap-2">
             <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Tipo de Prenda</label>
-            <select className="input-field" required value={selectedTypeId} onChange={e => { setSelectedTypeId(e.target.value); setSelectedCategory(''); }}>
+            <select className="input-field h-14 md:h-12 text-base md:text-sm font-bold md:font-normal cursor-pointer" required value={selectedTypeId} onChange={e => { setSelectedTypeId(e.target.value); setSelectedCategory(''); }}>
               <option value="" disabled>Seleccione prenda...</option>
               {/* Prendas principales */}
               <optgroup label="Prendas">
@@ -287,7 +287,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
           {!isOtros && (
             <div className="flex flex-col gap-2">
               <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Género / Contextura</label>
-              <select className="input-field" required disabled={!selectedTypeId} value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+              <select className="input-field h-14 md:h-12 text-base md:text-sm font-bold md:font-normal cursor-pointer" required disabled={!selectedTypeId} value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
                 <option value="" disabled>Seleccione...</option>
                 {currentTypeObj && Object.keys(currentTypeObj.categories).map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -399,9 +399,10 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
           <div className="flex flex-col gap-2 bg-[var(--color-surface-container-low)] p-4 rounded-xl border border-[var(--color-outline-variant)]/10">
             <label className="font-label text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-wider">Cantidad de Unidades</label>
             <input
-              type="number"
+              type="tel"
+              inputMode="numeric"
               min="1"
-              className="input-field text-center font-bold text-lg p-3"
+              className="input-field text-center font-bold text-lg p-3 h-14 w-full"
               value={singleQuantity}
               onChange={e => setSingleQuantity(Math.max(1, parseInt(e.target.value) || 1))}
               placeholder="1"
@@ -423,19 +424,20 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
               </div>
               
               {customDesignUrl && (
-                <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-center gap-6 animate-in fade-in zoom-in-95 shadow-sm">
+                <div className="mt-2 bg-[var(--color-surface-container-lowest)] border border-[var(--color-outline-variant)]/20 p-4 rounded-xl flex items-start sm:items-center gap-4 sm:gap-6 animate-in fade-in zoom-in-95 shadow-sm">
                   {customDesignUrl.match(/\.(jpeg|jpg|gif|png)$/i) || customDesignUrl.includes("supabase.co") ? (
-                    <img src={customDesignUrl} alt="Preview" className="w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5" />
+                    <img src={customDesignUrl} alt="Preview" className="w-20 sm:w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5 flex-shrink-0" />
                   ) : (
-                     <div className="w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner">
-                       <span className="material-symbols-outlined text-4xl">description</span>
+                     <div className="w-20 sm:w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner flex-shrink-0">
+                       <span className="material-symbols-outlined text-3xl sm:text-4xl">description</span>
                      </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[var(--color-primary)] font-black flex items-center m-0 uppercase tracking-widest">
-                      <span className="material-symbols-outlined mr-2 text-[1.2rem]">check_circle</span> Diseño Cargado
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <p className="text-sm text-[var(--color-primary)] font-black flex items-start sm:items-center m-0 uppercase tracking-widest break-words leading-tight">
+                      <span className="material-symbols-outlined mr-2 text-[1.2rem] flex-shrink-0 shrink-0 relative top-[2px] sm:top-0">check_circle</span> 
+                      <span>Diseño Cargado</span>
                     </p>
-                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-1">Este archivo se enviará a producción con tu pedido.</p>
+                    <p className="text-[11px] sm:text-xs text-[var(--color-on-surface-variant)] mt-2 leading-relaxed">Este archivo se enviará a producción con tu pedido.</p>
                   </div>
                 </div>
               )}
@@ -525,24 +527,28 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                        {!isShorts && (
                          <div>
                            <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest">2. Nombre a Estampar</label>
-                           <input id="new-person-name" type="text" className="input-field text-center font-bold" placeholder="NOMBRE" value={newPersonName} onChange={e => setNewPersonName(e.target.value.toUpperCase())} />
+                           <input id="new-person-name" type="text" className="input-field h-14 md:h-12 text-center font-bold text-lg md:text-base" placeholder="NOMBRE" value={newPersonName} onChange={e => setNewPersonName(e.target.value.toUpperCase())} />
                            {selectedCategory === 'Unisex' && (
                              <p className="text-[10px] text-[var(--color-on-surface-variant)] mt-1">Nombre opcional para prendas Unisex.</p>
                            )}
                          </div>
                        )}
-                       <div className="grid grid-cols-3 gap-3 mt-4">
+                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
                           <div className="col-span-1">
                             <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '2.' : '3.'} Número</label>
-                            <input type="text" className="input-field text-center font-headline font-black text-xl" placeholder="10" value={newPersonNumber} onChange={e => setNewPersonNumber(e.target.value)} />
+                            <input type="tel" inputMode="numeric" maxLength={3} className="input-field h-14 md:h-12 text-center font-headline font-black text-2xl md:text-xl px-1 sm:px-2" placeholder="10" value={newPersonNumber} onChange={e => setNewPersonNumber(e.target.value)} />
                           </div>
-                          <div className="col-span-1">
+                          <div className="col-span-1 border-[var(--color-outline-variant)]">
                             <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '3.' : '4.'} Cantidad</label>
-                            <input type="number" min="1" className="input-field text-center font-bold" value={newPersonQuantity} onChange={e => setNewPersonQuantity(parseInt(e.target.value) || 1)} />
+                            <select className="input-field h-14 md:h-12 text-center font-bold text-lg md:text-base cursor-pointer !pr-2 font-headline" style={{ textAlignLast: 'center' }} value={newPersonQuantity} onChange={e => setNewPersonQuantity(parseInt(e.target.value) || 1)}>
+                              {Array.from({ length: 50 }, (_, i) => i + 1).map(n => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                            </select>
                           </div>
-                          <div className="col-span-1">
+                          <div className="col-span-2 md:col-span-1">
                             <label className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mb-2 block tracking-widest text-center">{isShorts ? '4.' : '5.'} Función</label>
-                            <input type="text" className="input-field text-[10px] h-[52px]" placeholder="Ej: Arquero" value={newPersonRole} onChange={e => setNewPersonRole(e.target.value)} />
+                            <input type="text" className="input-field h-14 md:h-12 text-sm text-center md:text-left" placeholder="Ej: Arquero" value={newPersonRole} onChange={e => setNewPersonRole(e.target.value)} />
                           </div>
                         </div>
 
@@ -567,9 +573,10 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                   <div className="max-w-xs bg-[var(--color-surface-container-lowest)] p-4 rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm">
                     <label className="font-label text-xs uppercase tracking-widest text-[var(--color-on-surface-variant)] block mb-2">Unidades</label>
                     <input
-                      type="number"
+                      type="tel"
+                      inputMode="numeric"
                       min="0"
-                      className="input-field text-center font-bold text-lg p-2 w-full"
+                      className="input-field text-center font-bold text-lg p-3 h-14 w-full"
                       value={singleQuantity}
                       onChange={e => setSingleQuantity(Math.max(0, parseInt(e.target.value) || 0))}
                       placeholder="0"
@@ -579,15 +586,18 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                   <div className="flex flex-col gap-4">
                     <div className={`grid gap-3 ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'grid-cols-[repeat(auto-fill,minmax(72px,1fr))]' : 'grid-cols-[repeat(auto-fit,minmax(60px,1fr))]'} justify-center sm:justify-start`}>
                       {sizeGrid.map(sg => (
-                        <div key={sg.size} className={`flex flex-col items-center bg-[var(--color-surface-container-lowest)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'py-3 px-2 w-[68px]' : 'py-2 px-2 w-[60px]'}`}>
+                        <div key={sg.size} className={`flex flex-col items-center bg-[var(--color-surface-container-lowest)] rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm hover:border-[var(--color-primary)]/50 transition-all ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'py-3 px-2 w-[68px]' : 'py-2 px-2 w-[68px]'}`}>
                           <span className={`font-headline font-black text-[var(--color-on-surface)] mb-2 px-2 py-1.5 bg-gray-100 rounded-md whitespace-nowrap text-center w-full block ${(productName.includes('pantal') || sizeGrid.length > 10) ? 'text-sm' : 'text-base min-w-[32px]'}`}>{sg.size}</span>
-                          <input 
-                            type="number" 
-                            min="0"
-                            className="input-field text-center font-bold text-lg p-2 w-full"
+                          <select 
+                            className="input-field text-center font-bold text-lg p-1 sm:p-2 w-full appearance-none m-0 rounded-lg cursor-pointer !pr-2 bg-white"
+                            style={{ textAlignLast: 'center' }}
                             value={sg.quantity}
                             onChange={e => handleGridChange(sg.size, parseInt(e.target.value) || 0)}
-                          />
+                          >
+                            {Array.from({ length: 100 }, (_, i) => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
                         </div>
                       ))}
                     </div>
