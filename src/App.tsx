@@ -102,11 +102,42 @@ function App() {
         .single();
       
       if (error) {
-        if (error.code === 'PGRST116' && retries > 0) {
-          console.log("Fetch - Profile not found yet, retrying in 1.5s...");
-          fetchingProfileFor.current = null;
-          await new Promise(r => setTimeout(r, 1500));
-          return fetchProfile(userId, retries - 1);
+        if (error.code === 'PGRST116') {
+          if (retries > 0) {
+            console.log("Fetch - Profile not found yet, retrying in 1.5s...");
+            fetchingProfileFor.current = null;
+            await new Promise(r => setTimeout(r, 1500));
+            return fetchProfile(userId, retries - 1);
+          } else {
+            console.warn("Fetch - Profile not found after retries. Attempting to create fallback profile...");
+            // Create a fallback profile using session data or defaults
+            const sessionStr = sessionStorage.getItem('sb-' + import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token');
+            let fullName = 'Usuario';
+            if (sessionStr) {
+               try {
+                 const sessionData = JSON.parse(sessionStr);
+                 if (sessionData?.user?.user_metadata?.full_name) {
+                    fullName = sessionData.user.user_metadata.full_name;
+                 }
+               } catch(e) {}
+            }
+            
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                name: fullName,
+                role: 'cliente'
+              })
+              .select('*')
+              .single();
+
+            if (!insertError && newProfile) {
+              console.log("Fetch - Fallback profile created successfully.");
+              setProfile(newProfile as any);
+              return; // Success, bail out
+            }
+          }
         }
         throw error;
       };

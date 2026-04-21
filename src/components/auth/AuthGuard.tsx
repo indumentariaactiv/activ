@@ -23,7 +23,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
         setShowProfileError(true);
-      }, 3000);
+      }, 6000);
     } else {
       setShowProfileError(false);
       if (profileTimerRef.current) {

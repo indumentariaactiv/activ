@@ -717,7 +717,7 @@ const AdminOrderDetails = () => {
                       setTempName(order.name);
                     }
                   }}
-                  className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight bg-transparent border-b border-[var(--color-primary)] focus:outline-none"
+                  className="font-headline text-xl font-black tracking-tight text-[var(--color-on-surface)] leading-tight bg-transparent border-b border-[var(--color-primary)] focus:outline-none w-full"
                   autoFocus
                 />
                 <button
@@ -814,6 +814,59 @@ const AdminOrderDetails = () => {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Action Buttons Top Bar */}
+        <div className="mt-4 pt-4 border-t border-[var(--color-outline-variant)]/10 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handlePreviewClick}
+              className="px-3 py-1.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition-all rounded"
+            >
+              <span className="material-symbols-outlined text-[1rem]">visibility</span>
+              <span className="hidden sm:inline">Vista Previa</span>
+            </button>
+            <button 
+              onClick={exportToPDF}
+              className="px-3 py-1.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition-all shadow-sm rounded"
+            >
+              <span className="material-symbols-outlined text-[1rem]">download</span>
+              <span className="hidden sm:inline">Descargar</span> PDF
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center mr-2">
+              <span className="text-[10px] font-black uppercase text-[var(--color-on-surface-variant)] mr-2">Total:</span>
+              <span className="font-headline text-lg font-black text-[var(--color-primary)] leading-none">{totalQuantity} <span className="text-[10px] font-bold">prendas</span></span>
+            </div>
+            {order.status === 'confirmed' && (
+              <button 
+                onClick={confirmSendToProduction}
+                disabled={updatingStatus}
+                className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-[var(--color-primary)] text-white hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'factory'}</span>
+                {updatingStatus ? 'Procesando...' : 'Enviar a Fábrica'}
+              </button>
+            )}
+            {order.status === 'in_production' && (
+              <button 
+                onClick={finalizeOrder}
+                disabled={updatingStatus}
+                className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 shadow-sm transition-all active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'check_circle'}</span>
+                {updatingStatus ? 'Procesando...' : 'Finalizar Pedido'}
+              </button>
+            )}
+            {order.status === 'delivered' && (
+              <div className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-gray-100 text-gray-500 cursor-not-allowed">
+                <span className="material-symbols-outlined text-[1rem]">verified</span>
+                Finalizado
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1220,62 +1273,6 @@ const AdminOrderDetails = () => {
         );
       })}
     </div>
-
-      {/* BOTONES DE ACCIÓN AL FINAL */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--color-outline-variant)]/20 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black uppercase text-[var(--color-on-surface-variant)] opacity-60">Total Pedido</span>
-              <span className="font-headline text-lg font-black text-[var(--color-primary)]">{totalQuantity} <span className="text-xs font-normal">prendas</span></span>
-            </div>
-            <div className="h-8 w-px bg-[var(--color-outline-variant)]/20 mx-2"></div>
-            <button 
-              onClick={handlePreviewClick}
-              className="px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition-all"
-            >
-              <span className="material-symbols-outlined text-sm">visibility</span>
-              Vista Previa PDF
-            </button>
-            <button 
-              onClick={exportToPDF}
-              className="px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-sm">download</span>
-              Descargar PDF
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {order.status === 'confirmed' && (
-              <button 
-                onClick={confirmSendToProduction}
-                disabled={updatingStatus}
-                className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-[var(--color-primary)] text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
-              >
-                <span className="material-symbols-outlined">{updatingStatus ? 'hourglass_empty' : 'factory'}</span>
-                {updatingStatus ? 'Procesando...' : 'Enviar a Fábrica'}
-              </button>
-            )}
-            {order.status === 'in_production' && (
-              <button 
-                onClick={finalizeOrder}
-                disabled={updatingStatus}
-                className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all active:scale-95"
-              >
-                <span className="material-symbols-outlined text-sm">{updatingStatus ? 'hourglass_empty' : 'check_circle'}</span>
-                {updatingStatus ? 'Procesando...' : 'Finalizar Pedido'}
-              </button>
-            )}
-            {order.status === 'delivered' && (
-              <div className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-gray-100 text-gray-500 cursor-not-allowed">
-                <span className="material-symbols-outlined">verified</span>
-                Pedido Finalizado
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {showPdfPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2 md:p-6">
