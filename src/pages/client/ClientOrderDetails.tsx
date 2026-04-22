@@ -276,6 +276,12 @@ const ClientOrderDetails = () => {
     return doc;
   };
 
+  const exportToPDF = async () => {
+    const doc = await generateProductionPDF();
+    doc.save(`ficha-produccion-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.pdf`);
+    toast.success('PDF exportado correctamente');
+  };
+
   const handlePreviewClick = () => {
     setShowPdfPreview(true);
   };
@@ -596,12 +602,21 @@ const ClientOrderDetails = () => {
           <div className="bg-white rounded-2xl w-full h-full flex flex-col shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-bold text-gray-900">Vista Previa — Ficha de Producción</h2>
-              <button
-                onClick={() => { setShowPdfPreview(false); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }}
-                className="text-gray-500 hover:text-gray-800 font-bold px-2 text-xl"
-              >
-                ×
-              </button>
+              <div className="flex gap-2">
+                  <button 
+                    onClick={exportToPDF}
+                    className="btn btn-primary px-4 py-1.5 text-sm"
+                  >
+                    <span className="material-symbols-outlined mr-1 text-sm">download</span>
+                    Descargar
+                  </button>
+                  <button
+                    onClick={() => { setShowPdfPreview(false); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }}
+                    className="text-gray-500 hover:text-gray-800 font-bold px-2 text-xl"
+                  >
+                    ×
+                  </button>
+              </div>
             </div>
             <div className="flex-1 bg-gray-100 overflow-y-auto p-4 md:p-8">
               <div className="bg-white shadow-xl mx-auto w-fit">
