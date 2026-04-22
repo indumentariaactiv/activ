@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { ProductionSheet } from '../../components/orders/ProductionSheet';
 import logoAltiv from '../../assets/logo.png';
 
 const AdminOrderDetails = () => {
@@ -160,11 +161,7 @@ const AdminOrderDetails = () => {
     }
   };
 
-  const handlePreviewClick = async () => {
-    const doc = await generateProductionPDF();
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    setPdfUrl(url);
+  const handlePreviewClick = () => {
     setShowPdfPreview(true);
   };
 
@@ -1300,35 +1297,10 @@ const AdminOrderDetails = () => {
               </div>
             </div>
             
-            <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden">
-              {pdfUrl ? (
-                <>
-                  <div className="md:hidden w-full h-full flex flex-col items-center justify-center p-8 text-center bg-white">
-                    <span className="material-symbols-outlined text-6xl text-[var(--color-primary)] mb-4">picture_as_pdf</span>
-                    <h3 className="font-bold text-[var(--color-on-surface)] text-lg mb-2">Ficha Lista</h3>
-                    <p className="text-sm text-[var(--color-on-surface-variant)] mb-6">
-                      Tu celular no permite visualizar el PDF directamente aquí. Usa el botón de abajo para descargarlo/abrirlo.
-                    </p>
-                    <a 
-                      href={pdfUrl} 
-                      download={`ficha-produccion-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.pdf`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-primary w-full justify-center py-4 font-black shadow-lg"
-                    >
-                      <span className="material-symbols-outlined text-lg mr-2">download</span>
-                      Descargar PDF
-                    </a>
-                  </div>
-                  <iframe 
-                    src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
-                    className="hidden md:block w-full h-full border-none"
-                    title="PDF Preview"
-                  />
-                </>
-              ) : (
-                <div className="p-12 text-center animate-pulse">Generando vista previa...</div>
-              )}
+            <div className="flex-1 bg-gray-100 overflow-y-auto p-4 md:p-8">
+              <div className="bg-white shadow-xl mx-auto w-fit">
+                <ProductionSheet order={order} logoUrl={logoAltiv} />
+              </div>
             </div>
           </div>
         </div>
