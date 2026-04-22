@@ -31,7 +31,7 @@ function App() {
         console.warn("Auth initialization timed out. Forcing app unlock.");
         setLoading(false);
       }
-    }, 5000);
+    }, 10000); // Increased to 10s for mobile
 
     const handleSession = async (session: any, event: string) => {
       if (!isSubscribed) return;
@@ -149,6 +149,13 @@ function App() {
         setProfile(data as any);
       }
     } catch (err: any) {
+      if (err.message?.includes('JWT expired') || err.message?.includes('Invalid token')) {
+        console.log("Fetch - JWT expired, attempting session refresh...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError) {
+          return fetchProfile(userId, retries); // Retry with new session
+        }
+      }
       console.error("Fetch - Failed to load profile:", err.message || err);
       // Don't null out the profile on TOKEN_REFRESHED failures if we already have one
       const currentProfile = useAppStore.getState().profile;

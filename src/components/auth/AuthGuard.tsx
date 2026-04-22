@@ -23,7 +23,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
         setShowProfileError(true);
-      }, 4000);
+      }, 8000); // Wait 8 seconds on mobile/slow connections
     } else {
       setShowProfileError(false);
       if (profileTimerRef.current) {
@@ -107,13 +107,28 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
 
           <div className="flex gap-4">
             <button 
+              onClick={async () => {
+                const { error } = await supabase.auth.refreshSession();
+                if (error) {
+                  toast.error("No se pudo refrescar. Intenta reparar conexión.");
+                } else {
+                  window.location.reload();
+                }
+              }} 
+              disabled={isLoggingOut}
+              className="px-4 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[1.2rem]">refresh</span>
+              Refrescar Sesión
+            </button>
+            <button 
               onClick={() => {
                 localStorage.clear();
                 sessionStorage.clear();
                 window.location.reload();
               }} 
               disabled={isLoggingOut}
-              className="px-4 py-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hove:bg-amber-100 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-[1.2rem]">build</span>
               Reparar Conexión

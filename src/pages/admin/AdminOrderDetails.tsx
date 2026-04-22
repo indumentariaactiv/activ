@@ -696,10 +696,10 @@ const AdminOrderDetails = () => {
       </div>
 
       {/* CABECERA COMPACTA CON DATOS DEL CLIENTE */}
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="bg-white rounded-2xl p-6 mb-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Info Pedido */}
-          <div className="flex flex-col border-r border-[var(--color-outline-variant)]/10 pr-6">
+          <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--color-outline-variant)]/10 pb-4 lg:pb-0 lg:pr-8">
             <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Información del Pedido</span>
             {editingName ? (
               <div className="flex items-center gap-2">
@@ -758,7 +758,7 @@ const AdminOrderDetails = () => {
           </div>
 
           {/* Info Cliente */}
-          <div className="flex flex-col border-r border-[var(--color-outline-variant)]/10 pr-6">
+          <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--color-outline-variant)]/10 pb-4 lg:pb-0 lg:pr-8">
             <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] mb-1">Contacto del Cliente</span>
             <p className="font-bold text-sm text-[var(--color-on-surface)]">{order.profiles?.team_name || order.profiles?.name}</p>
             <div className="grid grid-cols-1 gap-1 mt-1 text-xs">
