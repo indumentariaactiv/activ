@@ -59,7 +59,7 @@ const ClientOrderDetails = () => {
   const generateProductionPDF = async () => {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
-    const leftMargin = 40;
+    const leftMargin = 50;
     const contentWidth = pageWidth - leftMargin * 2;
 
     doc.setDrawColor(0);
@@ -298,15 +298,17 @@ const ClientOrderDetails = () => {
           if (tableStartY + imgH > doc.internal.pageSize.getHeight() - 40) {
              const scaledH = doc.internal.pageSize.getHeight() - 40 - tableStartY;
              const scaledW = (scaledH / imgH) * imgW;
-             doc.addImage(base64, 'JPEG', pageWidth / 2 + (imgW - scaledW)/2, tableStartY, scaledW, scaledH);
+             const imgX = pageWidth - leftMargin - scaledW;
+             doc.addImage(base64, 'JPEG', imgX, tableStartY, scaledW, scaledH);
              afterImgY = tableStartY + scaledH + 20;
              doc.setFontSize(7); doc.setTextColor(150);
-             doc.text('DISEÑO ADJUNTO', pageWidth / 2 + imgW/2, tableStartY + scaledH + 10, { align: 'center' });
+             doc.text('DISEÑO ADJUNTO', imgX + scaledW/2, tableStartY + scaledH + 10, { align: 'center' });
           } else {
-             doc.addImage(base64, 'JPEG', pageWidth / 2, tableStartY, imgW, imgH);
+             const imgX = pageWidth - leftMargin - imgW;
+             doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
              afterImgY = tableStartY + imgH + 20;
              doc.setFontSize(7); doc.setTextColor(150);
-             doc.text('DISEÑO ADJUNTO', pageWidth / 2 + imgW/2, tableStartY + imgH + 10, { align: 'center' });
+             doc.text('DISEÑO ADJUNTO', imgX + imgW/2, tableStartY + imgH + 10, { align: 'center' });
           }
         }
       }

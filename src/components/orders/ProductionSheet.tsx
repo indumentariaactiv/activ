@@ -44,7 +44,7 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
   });
 
   return (
-    <div className="bg-white text-black p-0 font-sans print:p-0 max-w-[1000px] mx-auto shadow-lg print:shadow-none min-h-[11in]">
+    <div className="bg-white text-black p-4 md:p-8 font-sans print:p-8 max-w-[1000px] mx-auto shadow-lg print:shadow-none min-h-[11in]">
       {/* Header Compacto - Estilo Industrial */}
       <div className="border border-black flex items-stretch h-[60px]">
         {/* Cliente */}
