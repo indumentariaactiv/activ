@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { supabase, handleSupabaseError, withTimeout } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import logo from '../../assets/logo.png';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
@@ -52,17 +52,17 @@ const Login = () => {
     setError('');
     
     const navigationTimeout = setTimeout(() => {
-      // If navigation didn't happen after 5 seconds, reset button
+      // If navigation didn't happen after 15 seconds, reset button (increased for safety)
       console.warn("Navigation timeout. Resetting loading state.");
       setLoading(false);
-    }, 5000);
+    }, 15000);
     
     try {
       console.log("Login - Attempting sign in...");
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { error: authError } = await withTimeout(supabase.auth.signInWithPassword({
         email,
         password,
-      });
+      }));
 
       if (authError) {
         clearTimeout(navigationTimeout);
@@ -77,7 +77,7 @@ const Login = () => {
     } catch (err: any) {
       clearTimeout(navigationTimeout);
       console.error("Login - Error:", err.message);
-      setError(err.message || 'Error inesperado al iniciar sesión.');
+      setError(handleSupabaseError(err));
       setLoading(false);
     }
     // Note: setLoading(false) for the local state is intentionally OMITTED 

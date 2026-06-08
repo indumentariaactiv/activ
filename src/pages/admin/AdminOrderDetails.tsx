@@ -513,15 +513,10 @@ const AdminOrderDetails = () => {
 
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(34, 150, 243);
-      // IDEM label styled like reference images
-      doc.setFontSize(10);
-      doc.setTextColor(200, 50, 50); // reddish for IDEM
-      doc.text(`IDEM ${i + 1}: ${(item.garment_types?.name || '').toUpperCase()} - ${(item.category || '').toUpperCase()}`, leftMargin, currentY);
-      doc.setTextColor(0);
+      doc.setTextColor(200, 50, 50); // reddish for item name
+      const titleStr = `${(item.garment_types?.name || '').toUpperCase()} ${item.category && item.category !== 'General' ? `- ${item.category.toUpperCase()}` : ''}`;
+      doc.text(titleStr, leftMargin, currentY);
       
-      currentY += 10;
-
       const itemTypeName = (item.garment_types?.name || '').toLowerCase();
       const isItemMusculosa = itemTypeName.includes('musculosa');
       const isItemRemera = (itemTypeName.includes('remera') || itemTypeName.includes('camiseta')) && !isItemMusculosa;
@@ -530,142 +525,140 @@ const AdminOrderDetails = () => {
       const isItemBuzo = itemTypeName.includes('buzo');
       const hasFicha = isItemRemera || isItemMusculosa || isItemShort || isItemCampera || isItemBuzo;
 
-      if (hasFicha) {
-        // Reference format: TELA [value]   CUELLO [value]   [color box]
-        const gridX = leftMargin;
-        const gridY = currentY;
-        const cellW = 115;
-        const cellH = 25;
-        const labelCellW = 55;
-
-        const drawLabelValueCell = (x: number, y: number, label: string, value: string, w: number) => {
-          // Label cell (gray bg)
-          doc.setFillColor(240, 240, 240);
-          doc.rect(x, y, labelCellW, cellH, 'F');
-          doc.setDrawColor(0);
-          doc.setLineWidth(0.5);
-          doc.rect(x, y, labelCellW, cellH);
-          doc.setFontSize(7);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(80, 80, 80);
-          doc.text(label, x + labelCellW / 2, y + cellH / 2 + 2.5, { align: 'center' });
-          // Value cell (white bg)
-          doc.setFillColor(255, 255, 255);
-          doc.rect(x + labelCellW, y, w, cellH, 'F');
-          doc.rect(x + labelCellW, y, w, cellH);
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(0, 0, 0);
-          const displayValue = (value || '-').toUpperCase();
-          doc.text(displayValue, x + labelCellW + w / 2, y + cellH / 2 + 2.5, { align: 'center', maxWidth: w - 4 });
-        };
-
-        // Determine which cells to show based on garment type
-        if (isItemRemera) {
-          // Row 1: TELA + CUELLO
-          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW);
-          drawLabelValueCell(gridX + labelCellW + cellW, gridY, 'CUELLO', item.collar_type, cellW);
-          // Row 2: MANGAS + COLOR MANGAS
-          drawLabelValueCell(gridX, gridY + cellH, 'MANGAS', item.sleeve_type, cellW);
-          if (item.sleeve_color) {
-            drawLabelValueCell(gridX + labelCellW + cellW, gridY + cellH, 'COLOR MANGA', item.sleeve_color, cellW);
-          }
-          currentY += (cellH * 2) + 15;
-        } else if (isItemMusculosa) {
-          // Solo TELA
-          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW * 2);
-          currentY += cellH + 15;
-        } else if (isItemShort) {
-          // TELA + BOLSILLOS (from observations/notes)
-          const bolsillosVal = (() => {
-            const obs = item.observations || item.notes || '';
-            if (obs.includes('Con Bolsillos')) return 'Con Bolsillos';
-            if (obs.includes('Sin Bolsillos')) return 'Sin Bolsillos';
-            return '-';
-          })();
-          drawLabelValueCell(gridX, gridY, 'TELA', item.fabric_type, cellW);
-          drawLabelValueCell(gridX + labelCellW + cellW, gridY, 'BOLSILLOS', bolsillosVal, cellW);
-          currentY += cellH + 15;
-        } else if (isItemCampera || isItemBuzo) {
-          // ESTILO: Capucha / Cuello Alto / Cuello Redondo
-          drawLabelValueCell(gridX, gridY, 'ESTILO', item.collar_type, cellW);
-          currentY += cellH + 15;
+      let specX = leftMargin + doc.getTextWidth(titleStr) + 15;
+      
+      const drawSpec = (label: string, value: string) => {
+        const h = 12;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        const labelW = doc.getTextWidth(label) + 8;
+        const valueW = doc.getTextWidth(value) + 8;
+        
+        if (specX + labelW + valueW > pageWidth - leftMargin) {
+           specX = leftMargin;
+           currentY += 16;
         }
 
-        // Design Image (right side)
-        const imageUrl = item.custom_design_url || item.designs?.image_url;
-        if (imageUrl) {
-          const base64 = await getBase64Image(imageUrl);
-          if (base64) {
-            const imgX = gridX + (labelCellW + cellW) * 2 + 20;
-            doc.addImage(base64, 'JPEG', imgX, gridY - 5, 70, 90);
-            doc.setFontSize(6);
-            doc.setFont('helvetica', 'bold');
-            doc.text('DISEÑO ADJUNTO', imgX, gridY + 95);
-          }
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.setFillColor(240, 240, 240);
+        doc.rect(specX, currentY - 9, labelW, h, 'FD');
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, specX + 4, currentY - 1);
+        
+        doc.setFillColor(0, 0, 0);
+        doc.rect(specX + labelW, currentY - 9, valueW, h, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(value, specX + labelW + 4, currentY - 1);
+        
+        doc.setTextColor(0);
+        doc.setFillColor(255, 255, 255);
+
+        specX += labelW + valueW + 10;
+      };
+
+      if (hasFicha) {
+        if (isItemRemera) {
+          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
+          drawSpec('CUELLO', (item.collar_type || '-').toUpperCase());
+          drawSpec('MANGAS', (item.sleeve_type || '-').toUpperCase());
+          if (item.sleeve_color) drawSpec('COLOR M.', item.sleeve_color.toUpperCase());
+        } else if (isItemMusculosa) {
+          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
+        } else if (isItemShort) {
+          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
+          const bolsillosVal = item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
+          drawSpec('BOLSILLOS', bolsillosVal);
+        } else if (isItemCampera || isItemBuzo) {
+          drawSpec('ESTILO', (item.collar_type || '-').toUpperCase());
         }
       }
 
-      // Item Sizes Table
+      currentY += 10;
+      doc.setDrawColor(0);
+      doc.setLineWidth(1);
+      doc.line(leftMargin, currentY, pageWidth - leftMargin, currentY);
+      currentY += 10;
+
       let itemSizes = visibleSizes.filter(size => 
         item.has_personalization
           ? item.order_item_persons?.some((p: any) => p.size === size)
           : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
       );
 
-      let itemHeaders = ['Talle', ...itemSizes];
-      let itemQtys = ['Cant.', ...itemSizes.map(size => {
-        if (item.has_personalization) return item.order_item_persons?.filter((p: any) => p.size === size).length || 0;
-        return item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
-      })];
-
-      // Handle items with no standard sizes (accessories/unitarios)
-      if (itemSizes.length === 0) {
-        const total = item.has_personalization 
-          ? item.order_item_persons?.length || 0 
-          : item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
-        
-        itemHeaders = ['Detalle', 'Cantidad'];
-        itemQtys = ['Unitario / Sin Talle', total.toString()];
-      }
-
-      autoTable(doc, {
-        head: [itemHeaders],
-        body: [itemQtys],
-        startY: currentY,
-        margin: { left: leftMargin, right: 200 }, // Leave space for image
-        styles: { fontSize: 8, cellPadding: 5, halign: 'center', lineWidth: 0.5, lineColor: [220, 220, 220] },
-        headStyles: { fillColor: [26, 188, 156], textColor: 255, fontStyle: 'bold' },
-        bodyStyles: { fontStyle: 'bold', textColor: [60, 60, 60] },
-        columnStyles: { 0: { halign: 'left', fillColor: [248, 248, 248] } }
-      });
-
-      currentY = (doc as any).lastAutoTable.finalY + 15;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`NOTAS: ${(item.admin_comment || item.notes || 'SIN OBSERVACIONES').toUpperCase()}`, leftMargin, currentY);
+      const tableStartY = currentY;
       
-      currentY += 40;
-      
-      // Personalization table if exists
       if (item.has_personalization && item.order_item_persons?.length > 0) {
-        if (currentY > 650) { doc.addPage(); currentY = 50; }
-        doc.text('PLANILLA DE ESTAMPADO INDIVIDUAL', leftMargin, currentY);
-        currentY += 10;
-        
-        const pHeaders = ['Nº', 'Talle', 'Nombre'];
-        const pBody = item.order_item_persons.map((p: any) => [p.person_number || '-', p.size, p.person_name || '-']);
-        
+        const pHeaders = ['Talle', 'Nombre', 'Nº'];
+        const pBody = item.order_item_persons.map((p: any) => [p.size, p.person_name || '-', p.person_number || '-']);
         autoTable(doc, {
-          head: [pHeaders],
-          body: pBody,
-          startY: currentY,
-          margin: { left: leftMargin, right: leftMargin },
-          styles: { fontSize: 8, cellPadding: 3 },
-          headStyles: { fillColor: [0, 82, 204], textColor: 255 }
+          head: [pHeaders], body: pBody, startY: currentY,
+          margin: { left: leftMargin, right: pageWidth / 2 + 20 },
+          styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
+          headStyles: { fillColor: [240, 240, 240], textColor: 0, lineWidth: 1, lineColor: 0 },
+          bodyStyles: { textColor: 0, lineWidth: 0.5, lineColor: 0 },
+          columnStyles: { 1: { halign: 'left' } }
         });
-        currentY = (doc as any).lastAutoTable.finalY + 40;
+      } else {
+        const pHeaders = ['Talle', 'Cantidades'];
+        const pBody: any[] = [];
+        let totalVal = 0;
+        itemSizes.forEach(size => {
+          const q = item.order_item_sizes?.find((s: any) => s.size === size)?.quantity || 0;
+          if (q > 0) {
+             pBody.push([size, q.toString()]);
+             totalVal += q;
+          }
+        });
+        if (pBody.length === 0) {
+           const t = item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+           pBody.push(['Unitario', t.toString()]);
+           totalVal = t;
+        }
+
+        autoTable(doc, {
+          head: [pHeaders], body: pBody, startY: currentY,
+          margin: { left: leftMargin, right: pageWidth / 2 + 50 },
+          styles: { fontSize: 8, cellPadding: 4, halign: 'center' },
+          headStyles: { fillColor: [240, 240, 240], textColor: 0, lineWidth: 1, lineColor: 0 },
+          bodyStyles: { textColor: 0, lineWidth: 0.5, lineColor: 0 }
+        });
       }
+
+      const finalTableY = (doc as any).lastAutoTable.finalY;
+      
+      const imageUrl = item.custom_design_url || item.designs?.image_url;
+      let afterImgY = tableStartY;
+      if (imageUrl) {
+        const base64 = await getBase64Image(imageUrl);
+        if (base64) {
+          const imgW = 200;
+          const imgH = 260;
+          if (tableStartY + imgH > doc.internal.pageSize.getHeight() - 40) {
+             const scaledH = doc.internal.pageSize.getHeight() - 40 - tableStartY;
+             const scaledW = (scaledH / imgH) * imgW;
+             doc.addImage(base64, 'JPEG', pageWidth / 2 + (imgW - scaledW)/2, tableStartY, scaledW, scaledH);
+             afterImgY = tableStartY + scaledH + 20;
+             doc.setFontSize(7); doc.setTextColor(150);
+             doc.text('DISEÑO ADJUNTO', pageWidth / 2 + imgW/2, tableStartY + scaledH + 10, { align: 'center' });
+          } else {
+             doc.addImage(base64, 'JPEG', pageWidth / 2, tableStartY, imgW, imgH);
+             afterImgY = tableStartY + imgH + 20;
+             doc.setFontSize(7); doc.setTextColor(150);
+             doc.text('DISEÑO ADJUNTO', pageWidth / 2 + imgW/2, tableStartY + imgH + 10, { align: 'center' });
+          }
+        }
+      }
+
+      let nextY = Math.max(finalTableY + 10, afterImgY);
+      
+      if (item.admin_comment || item.notes) {
+          doc.setFontSize(8); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
+          doc.text(`NOTAS: ${(item.admin_comment || item.notes).toUpperCase()}`, leftMargin, finalTableY + 15);
+          nextY = Math.max(nextY, finalTableY + 30);
+      }
+
+      currentY = nextY + 20;
     }
 
     return doc;

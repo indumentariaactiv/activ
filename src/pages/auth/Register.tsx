@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { supabase, handleSupabaseError } from '../../lib/supabase';
 import logo from '../../assets/logo.png';
 
 const Register = () => {
@@ -53,7 +53,7 @@ const Register = () => {
       }
     } catch (err: any) {
       console.error("Registration error:", err.message);
-      setError(err.message || 'Error al registrarse. Por favor intenta de nuevo.');
+      setError(handleSupabaseError(err));
       setLoading(false);
     }
   };

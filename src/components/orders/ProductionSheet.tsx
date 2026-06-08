@@ -146,140 +146,121 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
             : (item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0);
 
           return (
-            <div key={item.id} className="break-inside-avoid">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-sm font-black text-red-600">IDEM {idx + 1}:</span>
-                <span className="text-sm font-black uppercase">{item.garment_types?.name} - {item.category}</span>
-                <div className="flex-1 h-px bg-gray-200"></div>
+            <div key={item.id} className="break-inside-avoid mb-10">
+              {/* Header de la prenda: Nombre + Specs */}
+              <div className="flex flex-wrap items-center gap-4 mb-2">
+                <span className="text-lg font-black text-red-600 uppercase">
+                  {item.garment_types?.name} {item.category && item.category !== 'General' ? `- ${item.category}` : ''}
+                </span>
+
+                {hasFicha && (
+                  <div className="flex items-center gap-3 ml-2">
+                    {isRem && (
+                      <>
+                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Cuello</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
+                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Mangas</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_type || '-'}</span></div>
+                        {item.sleeve_color && <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Color M.</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_color}</span></div>}
+                      </>
+                    )}
+                    {isMusculosa && (
+                      <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                    )}
+                    {isShort && (
+                      <>
+                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Bolsillos</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS'}</span></div>
+                      </>
+                    )}
+                    {(isCamp || isBuzo) && (
+                      <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Estilo</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-6">
-                <div className="space-y-6">
-                  {/* Ficha Técnica Grid */}
-                  {hasFicha && (
-                    <div className="border border-black overflow-hidden">
-                      <div className="bg-gray-100 px-3 py-1 text-[9px] font-black uppercase border-b border-black">Especificaciones Técnicas</div>
-                      <div className="grid grid-cols-2">
-                        {isRem && (
-                          <>
-                            <div className="border-r border-b border-black p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Tela</span>
-                              <span className="text-[10px] font-black uppercase">{item.fabric_type || '—'}</span>
-                            </div>
-                            <div className="border-b border-black p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Cuello</span>
-                              <span className="text-[10px] font-black uppercase">{item.collar_type || '—'}</span>
-                            </div>
-                            <div className="border-r border-black p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Mangas</span>
-                              <span className="text-[10px] font-black uppercase">{item.sleeve_type || '—'}</span>
-                            </div>
-                            <div className="p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Color M.</span>
-                              <span className="text-[10px] font-black uppercase">{item.sleeve_color || '—'}</span>
-                            </div>
-                          </>
-                        )}
-                        {isMusculosa && (
-                          <div className="col-span-2 p-2 flex items-center">
-                            <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Tela</span>
-                            <span className="text-[10px] font-black uppercase">{item.fabric_type || '—'}</span>
-                          </div>
-                        )}
-                        {isShort && (
-                          <>
-                            <div className="border-r border-black p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Tela</span>
-                              <span className="text-[10px] font-black uppercase">{item.fabric_type || '—'}</span>
-                            </div>
-                            <div className="p-2 flex items-center">
-                              <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Bolsillos</span>
-                              <span className="text-[10px] font-black uppercase">
-                                {item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'Con Bolsillos' : 'Sin Bolsillos'}
-                              </span>
-                            </div>
-                          </>
-                        )}
-                        {(isCamp || isBuzo) && (
-                          <div className="col-span-2 p-2 flex items-center">
-                            <span className="text-[8px] font-bold text-gray-500 uppercase w-16">Estilo</span>
-                            <span className="text-[10px] font-black uppercase">{item.collar_type || '—'}</span>
-                          </div>
-                        )}
-                      </div>
+              <div className="w-full h-[2px] bg-black mb-4"></div>
+
+              {/* Contenido: Tablas Verticales + Imagen */}
+              <div className="flex gap-8">
+                {/* Columna Izquierda: Talles / Nombres */}
+                <div className="w-[200px] flex-shrink-0">
+                  {item.has_personalization && item.order_item_persons?.length > 0 ? (
+                    <div className="mb-4">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-black">
+                            <th className="py-1 text-[10px] font-black uppercase text-left w-10">Talle</th>
+                            <th className="py-1 text-[10px] font-black uppercase text-left">Nombre</th>
+                            <th className="py-1 text-[10px] font-black uppercase text-center w-10">Nº</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {item.order_item_persons.map((p: any, pIdx: number) => (
+                            <tr key={pIdx} className="border-b border-gray-300 last:border-b-2 last:border-black">
+                              <td className="py-1.5 text-[11px] font-black">{p.size}</td>
+                              <td className="py-1.5 text-[11px] font-black uppercase">{p.person_name || '-'}</td>
+                              <td className="py-1.5 text-[11px] font-black text-center">{p.person_number || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="mb-4">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-black">
+                            <th className="py-1 text-[10px] font-black uppercase text-left w-16">Talle</th>
+                            <th className="py-1 text-[10px] font-black uppercase text-center">Cantidades</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {itemSizes.length > 0 ? itemSizes.map((size, sIdx) => {
+                            if (itemQuantities[sIdx] > 0) {
+                              return (
+                                <tr key={sIdx} className="border-b border-gray-300 last:border-b-2 last:border-black">
+                                  <td className="py-1.5 text-[11px] font-black underline">{size}</td>
+                                  <td className="py-1.5 text-[11px] font-black text-center">{itemQuantities[sIdx]}</td>
+                                </tr>
+                              );
+                            }
+                            return null;
+                          }) : (
+                            <tr className="border-b-2 border-black">
+                              <td className="py-1.5 text-[11px] font-black underline">Unitario</td>
+                              <td className="py-1.5 text-[11px] font-black text-center">{itemTotal}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
 
-                  {/* Sizes Table for Item */}
-                  <div className="border border-gray-300">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-emerald-600 text-white">
-                          <th className="p-1 border-r border-white/20 text-[9px] font-black uppercase text-left pl-3">Talle</th>
-                          {itemSizes.length > 0 ? itemSizes.map(size => (
-                            <th key={size} className="p-1 border-r border-white/20 text-center text-[9px] font-black uppercase">{size}</th>
-                          )) : (
-                            <th className="p-1 text-center text-[9px] font-black uppercase">Detalle</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="p-1.5 border-r border-gray-200 text-[9px] font-bold uppercase bg-gray-50 pl-3">Cant.</td>
-                          {itemSizes.length > 0 ? itemQuantities.map((q, qIdx) => (
-                            <td key={qIdx} className="p-1.5 border-r border-gray-200 text-center text-[10px] font-black">{q}</td>
-                          )) : (
-                            <td className="p-1.5 text-center text-[10px] font-black">Unitario / Sin Talle ({itemTotal})</td>
-                          )}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Item Notes */}
-                  <div className="text-[10px]">
-                    <span className="font-black text-gray-500 uppercase">Notas:</span>
-                    <p className="font-bold uppercase mt-1">{item.admin_comment || item.notes || 'SIN OBSERVACIONES'}</p>
-                  </div>
+                  {/* Notas */}
+                  {(item.admin_comment || item.notes) && (
+                    <div className="mt-4 text-[10px]">
+                      <span className="font-black text-gray-500 uppercase">Notas:</span>
+                      <p className="font-bold uppercase mt-0.5 leading-tight">{item.admin_comment || item.notes}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Item Design Image */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-[180px] aspect-[4/5] bg-white border-2 border-gray-100 flex items-center justify-center p-2 rounded shadow-sm">
-                    {(item.custom_design_url || item.designs?.image_url) ? (
-                      <img src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="text-[8px] font-bold text-gray-300 uppercase text-center">Sin imagen de diseño</div>
-                    )}
-                  </div>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Diseño Adjunto</span>
+                {/* Columna Derecha: Imagen */}
+                <div className="flex-1 flex justify-end items-start">
+                  {(item.custom_design_url || item.designs?.image_url) ? (
+                    <div className="w-[300px] h-auto flex flex-col items-center gap-1">
+                      <div className="w-full bg-white p-2">
+                        <img src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-full h-auto object-contain" style={{ maxHeight: '350px' }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-[250px] aspect-[4/3] bg-gray-50 border border-gray-200 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Sin diseño adjunto</span>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Personalization Table if exists */}
-              {item.has_personalization && item.order_item_persons?.length > 0 && (
-                <div className="mt-6 border border-gray-300">
-                  <div className="bg-blue-600 text-white px-3 py-1.5 text-[9px] font-black uppercase tracking-wider">Planilla de Estampado Individual</div>
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100 border-b border-gray-200">
-                        <th className="p-1 border-r border-gray-200 text-[8px] font-black uppercase text-center w-12">Nº</th>
-                        <th className="p-1 border-r border-gray-200 text-[8px] font-black uppercase text-center w-12">Talle</th>
-                        <th className="p-1 text-[8px] font-black uppercase text-left pl-3">Nombre</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {item.order_item_persons.map((p: any, pIdx: number) => (
-                        <tr key={pIdx} className="border-b border-gray-100 last:border-0">
-                          <td className="p-1.5 border-r border-gray-200 text-center text-[10px] font-black">{p.person_number || '-'}</td>
-                          <td className="p-1.5 border-r border-gray-200 text-center text-[10px] font-bold">{p.size}</td>
-                          <td className="p-1.5 text-[10px] font-black uppercase pl-3">{p.person_name || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
           );
         })}

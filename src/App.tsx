@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, handleSupabaseError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import { Toaster } from 'react-hot-toast';
 
@@ -71,7 +71,7 @@ function App() {
     // 1. Manually fetch the initial session to prevent race conditions or missing events
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.error("Auth - getSession error:", error);
+        console.error("Auth - getSession error:", handleSupabaseError(error));
         setLoading(false);
       } else {
         handleSession(session, 'MANUAL_INITIAL_SESSION');
