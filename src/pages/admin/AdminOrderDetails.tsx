@@ -656,8 +656,11 @@ const AdminOrderDetails = () => {
       
       if (item.admin_comment || item.notes) {
           doc.setFontSize(8); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
-          doc.text(`NOTAS: ${(item.admin_comment || item.notes).toUpperCase()}`, leftMargin, finalTableY + 15);
-          nextY = Math.max(nextY, finalTableY + 30);
+          const notesText = `NOTAS: ${(item.admin_comment || item.notes).toUpperCase()}`;
+          const maxNotesWidth = (pageWidth / 2) + 20 - leftMargin;
+          const lines = doc.splitTextToSize(notesText, maxNotesWidth);
+          doc.text(lines, leftMargin, finalTableY + 15);
+          nextY = Math.max(nextY, finalTableY + 15 + (lines.length * 12));
       }
 
       currentY = nextY + 20;
