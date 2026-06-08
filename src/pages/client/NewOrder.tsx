@@ -701,10 +701,21 @@ const NewOrder = () => {
                                 <p className="text-xs uppercase font-bold text-[var(--color-on-surface-variant)] tracking-widest">{item.category}</p>
                               </div>
                             </div>
-                            <div className="text-right flex items-center justify-end gap-3">
-                              <p className="font-headline font-black text-xl text-[var(--color-primary)]">{totalUnits} <span className="text-xs font-body font-normal text-[var(--color-on-surface-variant)]">uni</span></p>
-                              <button onClick={() => { setEditingGarment(item); setShowGarmentForm(true); }} className="text-[var(--color-on-surface-variant)] hover:text-[var(--color-primary)] transition-colors p-2">
+                            <div className="text-right flex items-center justify-end gap-1">
+                              <p className="font-headline font-black text-xl text-[var(--color-primary)] mr-2">{totalUnits} <span className="text-xs font-body font-normal text-[var(--color-on-surface-variant)]">uni</span></p>
+                              <button onClick={() => { setEditingGarment(item); setShowGarmentForm(true); }} title="Editar prenda" className="text-[var(--color-on-surface-variant)] hover:text-[var(--color-primary)] transition-colors p-2">
                                 <span className="material-symbols-outlined text-[1.2rem]">edit</span>
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm('¿Estás seguro de que querés eliminar esta prenda del pedido?')) {
+                                    setOrderItems(prev => prev.filter(p => p.id !== item.id));
+                                  }
+                                }} 
+                                title="Eliminar prenda" 
+                                className="text-[var(--color-on-surface-variant)] hover:text-red-500 transition-colors p-2"
+                              >
+                                <span className="material-symbols-outlined text-[1.2rem]">delete</span>
                               </button>
                             </div>
                           </div>
