@@ -82,9 +82,9 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
     }
   }, [selectedTypeId, types]);
 
-  // When type or category changes, reset grids if no initial data
+  // When type or category changes (or types load), populate the size grid correctly
   useEffect(() => {
-    if (!initialData && selectedTypeId && selectedCategory) {
+    if (selectedTypeId && selectedCategory && types.length > 0) {
       const typeObj = types.find(t => t.id === selectedTypeId);
       if (!typeObj) return;
 
@@ -94,12 +94,36 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
 
       if (noSizeMode) {
         setSizeGrid([]);
-        setSingleQuantity(0);
         return;
       }
 
       if (availableSizes) {
-        setSizeGrid(availableSizes.map(s => ({ size: s, quantity: 0 })));
+        setSizeGrid(prevGrid => {
+          const isInitialType = initialData && selectedTypeId === initialData.garment_type_id && selectedCategory === initialData.category;
+          
+          const newGrid = availableSizes.map(s => {
+            // Keep user's current changes if it exists in prevGrid
+            const fromPrev = prevGrid.find(p => p.size === s);
+            if (fromPrev) return fromPrev;
+            
+            // Or use initialData if applicable
+            if (isInitialType) {
+              const fromInitial = initialData.sizes.find(is => is.size === s);
+              if (fromInitial) return { size: s, quantity: fromInitial.quantity };
+            }
+            
+            return { size: s, quantity: 0 };
+          });
+
+          // Add any sizes from prevGrid that are NOT in availableSizes (to not lose data)
+          prevGrid.forEach(p => {
+            if (!newGrid.find(ng => ng.size === p.size)) {
+              newGrid.push(p);
+            }
+          });
+
+          return newGrid;
+        });
       }
     }
   }, [selectedTypeId, selectedCategory, types, initialData]);
