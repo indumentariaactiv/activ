@@ -448,6 +448,68 @@ const AdminOrderDetails = () => {
     doc.text(`${totalQuantity}`, leftMargin + 460 + (contentWidth - 460) / 2, headerY + headerH / 2 + 6, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
+    // --- GLOBAL SPECS ---
+    const findItem = (types: string[]) => order.order_items.find((item: any) => {
+      const t = (item.garment_types?.name || '').toLowerCase();
+      return types.some(type => t.includes(type));
+    });
+    const mainItem = findItem(['remera', 'camiseta']) || findItem(['musculosa']) || findItem(['short']) || findItem(['campera', 'buzo']);
+    
+    let summaryStartY = headerY + headerH + 15;
+
+    if (mainItem) {
+      const typeName = (mainItem.garment_types?.name || '').toLowerCase();
+      const isMusculosa = typeName.includes('musculosa');
+      const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
+      const isShort = typeName.includes('short');
+      const isCamp = typeName.includes('campera');
+      const isBuzo = typeName.includes('buzo');
+
+      let specX = leftMargin;
+      let specY = currentY;
+
+      const drawSpec = (label: string, value: string) => {
+        const h = 12;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        const labelW = doc.getTextWidth(label) + 8;
+        const valueW = doc.getTextWidth(value) + 8;
+        
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.setFillColor(240, 240, 240);
+        doc.rect(specX, specY - 9, labelW, h, 'FD');
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, specX + 4, specY - 1);
+        
+        doc.setFillColor(0, 0, 0);
+        doc.rect(specX + labelW, specY - 9, valueW, h, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(value, specX + labelW + 4, specY - 1);
+        
+        doc.setTextColor(0);
+        doc.setFillColor(255, 255, 255);
+
+        specX += labelW + valueW + 10;
+      };
+
+      if (isRem) {
+        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
+        drawSpec('CUELLO', (mainItem.collar_type || '-').toUpperCase());
+        drawSpec('MANGAS', (mainItem.sleeve_type || '-').toUpperCase());
+        if (mainItem.sleeve_color) drawSpec('COLOR M.', mainItem.sleeve_color.toUpperCase());
+      } else if (isMusculosa) {
+        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
+      } else if (isShort) {
+        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
+        const bolsillosVal = mainItem.observations?.includes('Con Bolsillos') || mainItem.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
+        drawSpec('BOLSILLOS', bolsillosVal);
+      } else if (isCamp || isBuzo) {
+        drawSpec('ESTILO', (mainItem.collar_type || '-').toUpperCase());
+      }
+      summaryStartY += 20; // push the table down
+    }
+
     // --- SUMMARY TABLE ---
     const visibleSizes = dynamicSizes.filter(size =>
       order.order_items.some((item: any) =>
@@ -497,10 +559,10 @@ const AdminOrderDetails = () => {
     autoTable(doc, {
       head: [summaryHeaders],
       body: summaryData,
-      startY: headerY + headerH + 15,
+      startY: summaryStartY,
       margin: { left: leftMargin, right: leftMargin },
-      styles: { fontSize: 7, cellPadding: 3, halign: 'center', lineWidth: 0.1, lineColor: [200, 200, 200] },
-      headStyles: { fillColor: [240, 240, 240], textColor: 0, halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: [200, 200, 200] },
+      styles: { fontSize: 7, cellPadding: 3, halign: 'center', lineWidth: 0.5, lineColor: 0, fontStyle: 'bold', textColor: 0 },
+      headStyles: { fillColor: [240, 240, 240], textColor: 0, halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: 0 },
       columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 } }
     });
 
@@ -516,63 +578,6 @@ const AdminOrderDetails = () => {
       doc.setTextColor(200, 50, 50); // reddish for item name
       const titleStr = `${(item.garment_types?.name || '').toUpperCase()} ${item.category && item.category !== 'General' ? `- ${item.category.toUpperCase()}` : ''}`;
       doc.text(titleStr, leftMargin, currentY);
-      
-      const itemTypeName = (item.garment_types?.name || '').toLowerCase();
-      const isItemMusculosa = itemTypeName.includes('musculosa');
-      const isItemRemera = (itemTypeName.includes('remera') || itemTypeName.includes('camiseta')) && !isItemMusculosa;
-      const isItemShort = itemTypeName.includes('short');
-      const isItemCampera = itemTypeName.includes('campera');
-      const isItemBuzo = itemTypeName.includes('buzo');
-      const hasFicha = isItemRemera || isItemMusculosa || isItemShort || isItemCampera || isItemBuzo;
-
-      let specX = leftMargin + doc.getTextWidth(titleStr) + 15;
-      
-      const drawSpec = (label: string, value: string) => {
-        const h = 12;
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        const labelW = doc.getTextWidth(label) + 8;
-        const valueW = doc.getTextWidth(value) + 8;
-        
-        if (specX + labelW + valueW > pageWidth - leftMargin) {
-           specX = leftMargin;
-           currentY += 16;
-        }
-
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.5);
-        doc.setFillColor(240, 240, 240);
-        doc.rect(specX, currentY - 9, labelW, h, 'FD');
-        doc.setTextColor(80, 80, 80);
-        doc.text(label, specX + 4, currentY - 1);
-        
-        doc.setFillColor(0, 0, 0);
-        doc.rect(specX + labelW, currentY - 9, valueW, h, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text(value, specX + labelW + 4, currentY - 1);
-        
-        doc.setTextColor(0);
-        doc.setFillColor(255, 255, 255);
-
-        specX += labelW + valueW + 10;
-      };
-
-      if (hasFicha) {
-        if (isItemRemera) {
-          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
-          drawSpec('CUELLO', (item.collar_type || '-').toUpperCase());
-          drawSpec('MANGAS', (item.sleeve_type || '-').toUpperCase());
-          if (item.sleeve_color) drawSpec('COLOR M.', item.sleeve_color.toUpperCase());
-        } else if (isItemMusculosa) {
-          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
-        } else if (isItemShort) {
-          drawSpec('TELA', (item.fabric_type || '-').toUpperCase());
-          const bolsillosVal = item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
-          drawSpec('BOLSILLOS', bolsillosVal);
-        } else if (isItemCampera || isItemBuzo) {
-          drawSpec('ESTILO', (item.collar_type || '-').toUpperCase());
-        }
-      }
 
       currentY += 10;
       doc.setDrawColor(0);

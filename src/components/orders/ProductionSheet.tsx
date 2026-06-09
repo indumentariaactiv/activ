@@ -75,16 +75,59 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
         </div>
       </div>
 
+      {/* Global Specs */}
+      {(() => {
+        const findItem = (types: string[]) => order.order_items?.find((item: any) => {
+          const t = (item.garment_types?.name || '').toLowerCase();
+          return types.some(type => t.includes(type));
+        });
+        const mainItem = findItem(['remera', 'camiseta']) || findItem(['musculosa']) || findItem(['short']) || findItem(['campera', 'buzo']);
+
+        if (!mainItem) return null;
+
+        const typeName = (mainItem.garment_types?.name || '').toLowerCase();
+        const isMusculosa = typeName.includes('musculosa');
+        const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
+        const isShort = typeName.includes('short');
+        const isCamp = typeName.includes('campera');
+        const isBuzo = typeName.includes('buzo');
+
+        return (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {isRem && (
+              <>
+                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
+                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Cuello</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.collar_type || '-'}</span></div>
+                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Mangas</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.sleeve_type || '-'}</span></div>
+                {mainItem.sleeve_color && <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Color M.</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.sleeve_color}</span></div>}
+              </>
+            )}
+            {isMusculosa && (
+              <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
+            )}
+            {isShort && (
+              <>
+                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
+                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Bolsillos</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.observations?.includes('Con Bolsillos') || mainItem.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS'}</span></div>
+              </>
+            )}
+            {(isCamp || isBuzo) && (
+              <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Estilo</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.collar_type || '-'}</span></div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Summary Table */}
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-300">
+        <table className="w-full border-collapse border-2 border-black">
           <thead>
-            <tr className="bg-gray-100 border-b border-gray-300">
-              <th className="p-2 border-r border-gray-300 text-left text-[10px] font-black uppercase">Prendas / Talles</th>
+            <tr className="bg-gray-100 border-b-2 border-black">
+              <th className="p-2 border-r-2 border-black text-left text-[11px] font-black uppercase">Prendas / Talles</th>
               {visibleSizes.map(size => (
-                <th key={size} className="p-1 border-r border-gray-300 text-center text-[10px] font-black uppercase w-8">{size}</th>
+                <th key={size} className="p-1 border-r-2 border-black text-center text-[11px] font-black uppercase w-8">{size}</th>
               ))}
-              <th className="p-2 text-center text-[10px] font-black uppercase w-16">Totales</th>
+              <th className="p-2 text-center text-[11px] font-black uppercase w-16">Totales</th>
             </tr>
           </thead>
           <tbody>
@@ -101,16 +144,16 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
                   : (item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0);
 
                 return (
-                  <tr key={`${type}-${idx}`} className="border-b border-gray-200">
-                    <td className="p-2 border-r border-gray-300 text-[10px] font-bold uppercase bg-gray-50">
+                  <tr key={`${type}-${idx}`} className="border-b-2 border-black">
+                    <td className="p-2 border-r-2 border-black text-[10px] font-black uppercase bg-gray-50">
                       {items.length > 1 ? `${type} - ${item.category}` : type}
                     </td>
                     {quantities.map((q, qIdx) => (
-                      <td key={qIdx} className="p-1 border-r border-gray-300 text-center text-[10px] font-medium">
+                      <td key={qIdx} className="p-1 border-r-2 border-black text-center text-[11px] font-black">
                         {q || '—'}
                       </td>
                     ))}
-                    <td className="p-2 text-center text-[11px] font-black bg-gray-100">{rowTotal}</td>
+                    <td className="p-2 text-center text-[12px] font-black bg-gray-100">{rowTotal}</td>
                   </tr>
                 );
               })
@@ -152,31 +195,6 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
                 <span className="text-lg font-black text-red-600 uppercase">
                   {item.garment_types?.name} {item.category && item.category !== 'General' ? `- ${item.category}` : ''}
                 </span>
-
-                {hasFicha && (
-                  <div className="flex items-center gap-3 ml-2">
-                    {isRem && (
-                      <>
-                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
-                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Cuello</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
-                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Mangas</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_type || '-'}</span></div>
-                        {item.sleeve_color && <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Color M.</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_color}</span></div>}
-                      </>
-                    )}
-                    {isMusculosa && (
-                      <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
-                    )}
-                    {isShort && (
-                      <>
-                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
-                        <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Bolsillos</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS'}</span></div>
-                      </>
-                    )}
-                    {(isCamp || isBuzo) && (
-                      <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Estilo</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="w-full h-[2px] bg-black mb-4"></div>
