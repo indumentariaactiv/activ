@@ -165,14 +165,6 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
       {/* Detailed Items */}
       <div className="mt-8 space-y-12">
         {order.order_items?.map((item: any) => {
-          const typeName = (item.garment_types?.name || '').toLowerCase();
-          const isMusculosa = typeName.includes('musculosa');
-          const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
-          const isShort = typeName.includes('short');
-          const isCamp = typeName.includes('campera');
-          const isBuzo = typeName.includes('buzo');
-          const hasFicha = isRem || isMusculosa || isShort || isCamp || isBuzo;
-
           const itemSizes = visibleSizes.filter(size => 
             item.has_personalization
               ? item.order_item_persons?.some((p: any) => p.size === size)

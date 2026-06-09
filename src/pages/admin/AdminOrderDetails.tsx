@@ -466,7 +466,7 @@ const AdminOrderDetails = () => {
       const isBuzo = typeName.includes('buzo');
 
       let specX = leftMargin;
-      let specY = currentY;
+      let specY = summaryStartY;
 
       const drawSpec = (label: string, value: string) => {
         const h = 12;
