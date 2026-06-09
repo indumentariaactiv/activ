@@ -561,8 +561,9 @@ const AdminOrderDetails = () => {
       body: summaryData,
       startY: summaryStartY,
       margin: { left: leftMargin, right: leftMargin },
-      styles: { fontSize: 8, cellPadding: 3, halign: 'center', lineWidth: 0.5, lineColor: 0, fontStyle: 'bold', textColor: 0 },
-      headStyles: { fillColor: [240, 240, 240], textColor: 0, halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: 0 },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4, halign: 'center', lineWidth: 0.5, lineColor: [0, 0, 0], fontStyle: 'bold', textColor: [0, 0, 0] },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], halign: 'center', fontStyle: 'bold', lineWidth: 0.5, lineColor: [0, 0, 0] },
       columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 100 } }
     });
 
