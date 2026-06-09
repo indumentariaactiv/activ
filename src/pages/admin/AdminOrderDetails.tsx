@@ -448,67 +448,8 @@ const AdminOrderDetails = () => {
     doc.text(`${totalQuantity}`, leftMargin + 460 + (contentWidth - 460) / 2, headerY + headerH / 2 + 6, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
-    // --- GLOBAL SPECS ---
-    const findItem = (types: string[]) => order.order_items.find((item: any) => {
-      const t = (item.garment_types?.name || '').toLowerCase();
-      return types.some(type => t.includes(type));
-    });
-    const mainItem = findItem(['remera', 'camiseta']) || findItem(['musculosa']) || findItem(['short']) || findItem(['campera', 'buzo']);
-    
+    // --- GLOBAL SPECS REMOVED (NOW PER ITEM) ---
     let summaryStartY = headerY + headerH + 15;
-
-    if (mainItem) {
-      const typeName = (mainItem.garment_types?.name || '').toLowerCase();
-      const isMusculosa = typeName.includes('musculosa');
-      const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
-      const isShort = typeName.includes('short');
-      const isCamp = typeName.includes('campera');
-      const isBuzo = typeName.includes('buzo');
-
-      let specX = leftMargin;
-      let specY = summaryStartY;
-
-      const drawSpec = (label: string, value: string) => {
-        const h = 12;
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        const labelW = doc.getTextWidth(label) + 8;
-        const valueW = doc.getTextWidth(value) + 8;
-        
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.5);
-        doc.setFillColor(240, 240, 240);
-        doc.rect(specX, specY - 9, labelW, h, 'FD');
-        doc.setTextColor(80, 80, 80);
-        doc.text(label, specX + 4, specY - 1);
-        
-        doc.setFillColor(0, 0, 0);
-        doc.rect(specX + labelW, specY - 9, valueW, h, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text(value, specX + labelW + 4, specY - 1);
-        
-        doc.setTextColor(0);
-        doc.setFillColor(255, 255, 255);
-
-        specX += labelW + valueW + 10;
-      };
-
-      if (isRem) {
-        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
-        drawSpec('CUELLO', (mainItem.collar_type || '-').toUpperCase());
-        drawSpec('MANGAS', (mainItem.sleeve_type || '-').toUpperCase());
-        if (mainItem.sleeve_color) drawSpec('COLOR M.', mainItem.sleeve_color.toUpperCase());
-      } else if (isMusculosa) {
-        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
-      } else if (isShort) {
-        drawSpec('TELA', (mainItem.fabric_type || '-').toUpperCase());
-        const bolsillosVal = mainItem.observations?.includes('Con Bolsillos') || mainItem.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
-        drawSpec('BOLSILLOS', bolsillosVal);
-      } else if (isCamp || isBuzo) {
-        drawSpec('ESTILO', (mainItem.collar_type || '-').toUpperCase());
-      }
-      summaryStartY += 20; // push the table down
-    }
 
     // --- SUMMARY TABLE ---
     const visibleSizes = dynamicSizes.filter(size =>
@@ -596,7 +537,60 @@ const AdminOrderDetails = () => {
       const titleStr = `${(item.garment_types?.name || '').toUpperCase()} ${item.category && item.category !== 'General' ? `- ${item.category.toUpperCase()}` : ''}`;
       const titleLines = doc.splitTextToSize(titleStr, 220);
       doc.text(titleLines, itemX, localY);
-      localY += titleLines.length * 10;
+      localY += titleLines.length * 10 - 2;
+
+      // Draw item-specific specs inline
+      const typeName = (item.garment_types?.name || '').toLowerCase();
+      const isMusculosa = typeName.includes('musculosa');
+      const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
+      const isShort = typeName.includes('short');
+      const isCamp = typeName.includes('campera');
+      const isBuzo = typeName.includes('buzo');
+
+      let specX = itemX;
+      let specY = localY;
+
+      const drawItemSpec = (label: string, value: string) => {
+        const h = 10;
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'bold');
+        const labelW = doc.getTextWidth(label) + 6;
+        const valueW = doc.getTextWidth(value) + 6;
+        
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.setFillColor(240, 240, 240);
+        doc.rect(specX, specY - 8, labelW, h, 'FD');
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, specX + 3, specY - 1);
+        
+        doc.setFillColor(0, 0, 0);
+        doc.rect(specX + labelW, specY - 8, valueW, h, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(value, specX + labelW + 3, specY - 1);
+        
+        doc.setTextColor(0);
+        doc.setFillColor(255, 255, 255);
+
+        specX += labelW + valueW + 4;
+      };
+
+      if (isRem) {
+        drawItemSpec('CUELLO', (item.collar_type || '-').toUpperCase());
+        drawItemSpec('MANGAS', (item.sleeve_type || '-').toUpperCase());
+        if (item.sleeve_color) drawItemSpec('COLOR M.', item.sleeve_color.toUpperCase());
+      } else if (isShort) {
+        const bolsillosVal = item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
+        drawItemSpec('BOLSILLOS', bolsillosVal);
+      } else if (isCamp || isBuzo) {
+        drawItemSpec('ESTILO', (item.collar_type || '-').toUpperCase());
+      }
+
+      if (isRem || isShort || isCamp || isBuzo) {
+        localY += 10;
+      } else {
+        localY += 5;
+      }
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.5);
