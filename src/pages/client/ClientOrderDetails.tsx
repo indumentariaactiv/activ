@@ -230,21 +230,39 @@ const ClientOrderDetails = () => {
 
     let currentY = (doc as any).lastAutoTable.finalY + 25;
 
+    let itemStartY = currentY;
+    let rowMaxY = currentY;
+
     for (let i = 0; i < order.order_items.length; i++) {
       const item = order.order_items[i];
-      if (currentY > 700) { doc.addPage(); currentY = 50; }
+      const col = i % 2;
 
-      doc.setFontSize(11);
+      if (col === 0 && i !== 0) {
+        itemStartY = rowMaxY + 20;
+      }
+
+      // Very minimal page break protection just in case it's absurdly long
+      if (col === 0 && itemStartY > doc.internal.pageSize.getHeight() - 100) {
+        doc.addPage();
+        itemStartY = 50;
+        rowMaxY = 50;
+      }
+
+      let itemX = leftMargin + col * 240;
+      let localY = itemStartY;
+
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(200, 50, 50); // reddish for item name
       const titleStr = `${(item.garment_types?.name || '').toUpperCase()} ${item.category && item.category !== 'General' ? `- ${item.category.toUpperCase()}` : ''}`;
-      doc.text(titleStr, leftMargin, currentY);
+      const titleLines = doc.splitTextToSize(titleStr, 220);
+      doc.text(titleLines, itemX, localY);
+      localY += titleLines.length * 10;
 
-      currentY += 10;
       doc.setDrawColor(0);
-      doc.setLineWidth(1);
-      doc.line(leftMargin, currentY, pageWidth - leftMargin, currentY);
-      currentY += 10;
+      doc.setLineWidth(0.5);
+      doc.line(itemX, localY, itemX + 220, localY);
+      localY += 5;
 
       let itemSizes = visibleSizes.filter(size => 
         item.has_personalization
@@ -252,17 +270,18 @@ const ClientOrderDetails = () => {
           : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
       );
 
-      const tableStartY = currentY;
+      const tableStartY = localY;
+      const tableWidth = item.has_personalization ? 120 : 100;
       
       if (item.has_personalization && item.order_item_persons?.length > 0) {
         const pHeaders = ['Talle', 'Nombre', 'Nº'];
         const pBody = item.order_item_persons.map((p: any) => [p.size, p.person_name || '-', p.person_number || '-']);
         autoTable(doc, {
-          head: [pHeaders], body: pBody, startY: currentY,
-          margin: { left: leftMargin, right: pageWidth / 2 + 20 },
-          styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
-          headStyles: { fillColor: [240, 240, 240], textColor: 0, lineWidth: 1, lineColor: 0 },
-          bodyStyles: { textColor: 0, lineWidth: 0.5, lineColor: 0 },
+          head: [pHeaders], body: pBody, startY: tableStartY,
+          margin: { left: itemX, right: pageWidth - (itemX + tableWidth) },
+          theme: 'grid',
+          styles: { fontSize: 7, cellPadding: 2, halign: 'center', lineWidth: 0.5, lineColor: [0, 0, 0], textColor: [0, 0, 0] },
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], lineWidth: 0.5, lineColor: [0, 0, 0] },
           columnStyles: { 1: { halign: 'left' } }
         });
       } else {
@@ -283,11 +302,11 @@ const ClientOrderDetails = () => {
         }
 
         autoTable(doc, {
-          head: [pHeaders], body: pBody, startY: currentY,
-          margin: { left: leftMargin, right: pageWidth / 2 + 50 },
-          styles: { fontSize: 8, cellPadding: 4, halign: 'center' },
-          headStyles: { fillColor: [240, 240, 240], textColor: 0, lineWidth: 1, lineColor: 0 },
-          bodyStyles: { textColor: 0, lineWidth: 0.5, lineColor: 0 }
+          head: [pHeaders], body: pBody, startY: tableStartY,
+          margin: { left: itemX, right: pageWidth - (itemX + tableWidth) },
+          theme: 'grid',
+          styles: { fontSize: 7, cellPadding: 3, halign: 'center', lineWidth: 0.5, lineColor: [0, 0, 0], textColor: [0, 0, 0] },
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], lineWidth: 0.5, lineColor: [0, 0, 0] }
         });
       }
 
@@ -298,38 +317,30 @@ const ClientOrderDetails = () => {
       if (imageUrl) {
         const base64 = await getBase64Image(imageUrl);
         if (base64) {
-          const imgW = 200;
-          const imgH = 260;
-          if (tableStartY + imgH > doc.internal.pageSize.getHeight() - 40) {
-             const scaledH = doc.internal.pageSize.getHeight() - 40 - tableStartY;
-             const scaledW = (scaledH / imgH) * imgW;
-             const imgX = pageWidth - leftMargin - scaledW;
-             doc.addImage(base64, 'JPEG', imgX, tableStartY, scaledW, scaledH);
-             afterImgY = tableStartY + scaledH + 20;
-             doc.setFontSize(7); doc.setTextColor(150);
-             doc.text('DISEÑO ADJUNTO', imgX + scaledW/2, tableStartY + scaledH + 10, { align: 'center' });
-          } else {
-             const imgX = pageWidth - leftMargin - imgW;
-             doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
-             afterImgY = tableStartY + imgH + 20;
-             doc.setFontSize(7); doc.setTextColor(150);
-             doc.text('DISEÑO ADJUNTO', imgX + imgW/2, tableStartY + imgH + 10, { align: 'center' });
-          }
+          const imgW = 90;
+          const imgH = 117;
+          const imgX = itemX + tableWidth + 5;
+          doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
+          afterImgY = tableStartY + imgH;
+          doc.setFontSize(6); doc.setTextColor(150);
+          doc.text('DISEÑO ADJUNTO', imgX + imgW/2, tableStartY + imgH + 8, { align: 'center' });
         }
       }
 
-      let nextY = Math.max(finalTableY + 10, afterImgY);
+      let nextY = Math.max(finalTableY, afterImgY);
       
       if (item.admin_comment || item.notes) {
-          doc.setFontSize(8); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7); doc.setTextColor(0); doc.setFont('helvetica', 'bold');
           const notesText = `NOTAS: ${(item.admin_comment || item.notes).toUpperCase()}`;
-          const maxNotesWidth = (pageWidth / 2) + 20 - leftMargin;
+          const maxNotesWidth = 220;
           const lines = doc.splitTextToSize(notesText, maxNotesWidth);
-          doc.text(lines, leftMargin, finalTableY + 15);
-          nextY = Math.max(nextY, finalTableY + 15 + (lines.length * 12));
+          doc.text(lines, itemX, nextY + 10);
+          nextY += 10 + (lines.length * 8);
       }
 
-      currentY = nextY + 20;
+      if (nextY > rowMaxY) {
+          rowMaxY = nextY;
+      }
     }
     return doc;
   };
