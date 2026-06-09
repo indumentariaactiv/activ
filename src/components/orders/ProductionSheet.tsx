@@ -149,11 +149,11 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
                       {items.length > 1 ? `${type} - ${item.category}` : type}
                     </td>
                     {quantities.map((q, qIdx) => (
-                      <td key={qIdx} className="p-1 border-r-2 border-black text-center text-[11px] font-black">
+                      <td key={qIdx} className="p-1 border-r-2 border-black text-center text-[12px] font-black">
                         {q || '—'}
                       </td>
                     ))}
-                    <td className="p-2 text-center text-[12px] font-black bg-gray-100">{rowTotal}</td>
+                    <td className="p-2 text-center text-[13px] font-black bg-gray-100">{rowTotal}</td>
                   </tr>
                 );
               })
