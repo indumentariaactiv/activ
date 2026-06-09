@@ -75,48 +75,7 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
         </div>
       </div>
 
-      {/* Global Specs */}
-      {(() => {
-        const findItem = (types: string[]) => order.order_items?.find((item: any) => {
-          const t = (item.garment_types?.name || '').toLowerCase();
-          return types.some(type => t.includes(type));
-        });
-        const mainItem = findItem(['remera', 'camiseta']) || findItem(['musculosa']) || findItem(['short']) || findItem(['campera', 'buzo']);
-
-        if (!mainItem) return null;
-
-        const typeName = (mainItem.garment_types?.name || '').toLowerCase();
-        const isMusculosa = typeName.includes('musculosa');
-        const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
-        const isShort = typeName.includes('short');
-        const isCamp = typeName.includes('campera');
-        const isBuzo = typeName.includes('buzo');
-
-        return (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {isRem && (
-              <>
-                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
-                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Cuello</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.collar_type || '-'}</span></div>
-                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Mangas</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.sleeve_type || '-'}</span></div>
-                {mainItem.sleeve_color && <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Color M.</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.sleeve_color}</span></div>}
-              </>
-            )}
-            {isMusculosa && (
-              <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
-            )}
-            {isShort && (
-              <>
-                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.fabric_type || '-'}</span></div>
-                <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Bolsillos</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.observations?.includes('Con Bolsillos') || mainItem.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS'}</span></div>
-              </>
-            )}
-            {(isCamp || isBuzo) && (
-              <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Estilo</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{mainItem.collar_type || '-'}</span></div>
-            )}
-          </div>
-        );
-      })()}
+      {/* Global Specs removed - Details are now per item */}
 
       {/* Summary Table */}
       <div className="mt-4 overflow-x-auto">
@@ -180,13 +139,41 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
             ? (item.order_item_persons?.length || 0) 
             : (item.order_item_sizes?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0);
 
+          const typeName = (item.garment_types?.name || '').toLowerCase();
+          const isMusculosa = typeName.includes('musculosa');
+          const isRem = (typeName.includes('remera') || typeName.includes('camiseta')) && !isMusculosa;
+          const isShort = typeName.includes('short');
+          const isCamp = typeName.includes('campera');
+          const isBuzo = typeName.includes('buzo');
+
           return (
             <div key={item.id} className="break-inside-avoid mb-10">
               {/* Header de la prenda: Nombre + Specs */}
-              <div className="flex flex-wrap items-center gap-4 mb-2">
-                <span className="text-lg font-black text-red-600 uppercase">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <span className="text-lg font-black text-red-600 uppercase mr-2">
                   {item.garment_types?.name} {item.category && item.category !== 'General' ? `- ${item.category}` : ''}
                 </span>
+                
+                {isRem && (
+                  <>
+                    <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                    <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Cuello</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
+                    <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Mangas</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_type || '-'}</span></div>
+                    {item.sleeve_color && <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Color M.</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.sleeve_color}</span></div>}
+                  </>
+                )}
+                {isMusculosa && (
+                  <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                )}
+                {isShort && (
+                  <>
+                    <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Tela</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.fabric_type || '-'}</span></div>
+                    <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Bolsillos</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS'}</span></div>
+                  </>
+                )}
+                {(isCamp || isBuzo) && (
+                  <div className="flex items-center border border-black shadow-sm"><span className="bg-white text-[9px] font-bold uppercase px-2 py-1 border-r border-black">Estilo</span><span className="text-[9px] font-black uppercase px-2 py-1 bg-black text-white min-w-[40px] text-center">{item.collar_type || '-'}</span></div>
+                )}
               </div>
 
               <div className="w-full h-[2px] bg-black mb-4"></div>
