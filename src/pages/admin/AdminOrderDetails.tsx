@@ -576,17 +576,21 @@ const AdminOrderDetails = () => {
       };
 
       if (isRem) {
+        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
         drawItemSpec('CUELLO', (item.collar_type || '-').toUpperCase());
         drawItemSpec('MANGAS', (item.sleeve_type || '-').toUpperCase());
         if (item.sleeve_color) drawItemSpec('COLOR M.', item.sleeve_color.toUpperCase());
+      } else if (isMusculosa) {
+        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
       } else if (isShort) {
+        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
         const bolsillosVal = item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
         drawItemSpec('BOLSILLOS', bolsillosVal);
       } else if (isCamp || isBuzo) {
         drawItemSpec('ESTILO', (item.collar_type || '-').toUpperCase());
       }
 
-      if (isRem || isShort || isCamp || isBuzo) {
+      if (isRem || isMusculosa || isShort || isCamp || isBuzo) {
         localY += 10;
       } else {
         localY += 5;
