@@ -33,7 +33,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
           // Solo mostrar el error si el reintento automático ya falló
           setShowProfileError(true);
         }
-      }, 6000); // Wait 6 segundos
+      }, 4000); // 4 segundos es suficiente para esperar
     } else {
       setShowProfileError(false);
       if (profile) {
@@ -84,6 +84,16 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-[var(--color-primary-container)] border-t-[var(--color-primary)] rounded-full animate-spin"></div>
             <p className="font-headline font-bold text-[var(--color-primary)] animate-pulse uppercase tracking-widest text-xs">Cargando perfil...</p>
+            <button 
+              onClick={() => {
+                supabase.auth.signOut().then(() => {
+                  window.location.href = '/login';
+                });
+              }}
+              className="mt-8 px-4 py-2 text-xs text-[var(--color-on-surface-variant)] underline hover:text-[var(--color-error)] transition-colors"
+            >
+              Cancelar y salir
+            </button>
           </div>
         </div>
       );

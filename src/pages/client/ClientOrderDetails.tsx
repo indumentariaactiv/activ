@@ -455,11 +455,34 @@ const ClientOrderDetails = () => {
 
   const handleConfirmOrder = async () => {
     setIsConfirming(true);
-    const loadingToast = toast.loading('Enviando pedido a producción...');
+    const loadingToast = toast.loading('Generando ficha técnica y enviando pedido...');
     try {
+      // 1. Generar el PDF en segundo plano
+      const doc = await generateProductionPDF();
+      const pdfBlob = doc.output('blob');
+      
+      // 2. Subir el PDF a Supabase Storage
+      const fileName = `pedido-${id}-${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('custom_designs')
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Obtener la URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('custom_designs')
+        .getPublicUrl(fileName);
+
+      const pdfUrl = publicUrlData.publicUrl;
+
+      // 4. Actualizar el pedido
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'confirmed' })
+        .update({ status: 'confirmed', pdf_url: pdfUrl })
         .eq('id', id)
         .eq('client_id', user?.id);
 
@@ -467,7 +490,7 @@ const ClientOrderDetails = () => {
 
       if (isMountedRef.current) {
         toast.success('¡Pedido enviado a producción! El equipo de ALTIV lo recibirá en breve.', { id: loadingToast, duration: 4000 });
-        setOrder((prev: any) => ({ ...prev, status: 'confirmed' }));
+        setOrder((prev: any) => ({ ...prev, status: 'confirmed', pdf_url: pdfUrl }));
         setShowConfirmModal(false);
       }
     } catch (err: any) {

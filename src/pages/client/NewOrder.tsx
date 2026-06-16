@@ -214,8 +214,8 @@ const NewOrder = () => {
   const handlePrev = () => setStep(s => s - 1);
 
   const handleSubmitOrder = async () => {
-    if (!orderName.trim() || !fullName.trim() || !phone.trim() || !email.trim() || !shippingAddress.trim() || !preferredCarrier.trim() || !orderPurpose.trim()) {
-      toast.error('Completa todos los datos personales del pedido antes de guardar.');
+    if (!orderName.trim() || !fullName.trim() || !phone.trim() || !email.trim() || !shippingAddress.trim() || !orderPurpose.trim()) {
+      toast.error('Completa todos los datos obligatorios del pedido antes de guardar.');
       setStep(1);
       return;
     }
@@ -494,7 +494,6 @@ const NewOrder = () => {
     if (!phone.trim()) missingFields.push('Teléfono');
     if (!email.trim()) missingFields.push('Correo Electrónico');
     if (!shippingAddress.trim()) missingFields.push('Dirección');
-    if (!preferredCarrier.trim()) missingFields.push('Courier');
     if (!orderPurpose.trim()) missingFields.push('Propósito');
 
     if (missingFields.length > 0) {
@@ -593,7 +592,7 @@ const NewOrder = () => {
 
               <div className="flex flex-col gap-2">
                 <label className="font-label text-xs uppercase font-bold tracking-wider text-[var(--color-on-surface-variant)]">
-                  Courier preferido
+                  Courier preferido (Opcional)
                 </label>
                 <select
                   className="input-field"

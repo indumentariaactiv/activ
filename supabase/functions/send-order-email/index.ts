@@ -59,8 +59,14 @@ serve(async (req) => {
 
           <p style="font-size: 16px; color: #333;">Ingresa a la plataforma para ver la ficha técnica completa.</p>
           
-          <div style="text-align: center; margin-top: 30px;">
+          <div style="text-align: center; margin-top: 30px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <a href="https://altiv.com/admin/pedido/${record.id}" style="background-color: #0052cc; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; display: inline-block;">Ver Pedido en el Sistema</a>
+            
+            ${record.pdf_url ? `
+            <a href="${record.pdf_url}" style="background-color: #f0f0f0; color: #333; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; border: 1px solid #ccc; display: inline-block;">
+              Descargar Ficha en PDF
+            </a>
+            ` : ''}
           </div>
         </div>
       </div>

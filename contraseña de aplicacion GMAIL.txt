@@ -1,0 +1,12 @@
+itwo atoy kfxg mkob
+
+# 1. Subir la función
+npx supabase functions deploy send-order-email --project-ref cugwqillxntvqqzadfpc
+# 2. Guardar tu correo de Gmail
+npx supabase secrets set SMTP_USERNAME="tu-correo@gmail.com" --project-ref cugwqillxntvqqzadfpc
+# 3. Guardar la contraseña de aplicación
+npx supabase secrets set SMTP_PASSWORD="itwo atoy kfxg mkob" --project-ref cugwqillxntvqqzadfpc
+
+
+ALTIVINDUMENATRIA@GMAIL.COM
+altivindumentaria@gmail.com
