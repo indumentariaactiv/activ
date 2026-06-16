@@ -375,9 +375,9 @@ const ClientOrderDetails = () => {
       link.href = dataUrl;
       link.click();
       toast.success('Imagen descargada correctamente', { id: toastId });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating image:', error);
-      toast.error('Error al generar la imagen');
+      toast.error(`Error al generar la imagen: ${error.message || 'Desconocido'}`);
     }
   };
 

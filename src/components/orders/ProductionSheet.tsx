@@ -241,7 +241,13 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
                   {(item.custom_design_url || item.designs?.image_url) ? (
                     <div className="w-[300px] h-auto flex flex-col items-center gap-1">
                       <div className="w-full bg-white p-2">
-                        <img crossOrigin="anonymous" src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-full h-auto object-contain" style={{ maxHeight: '350px' }} />
+                        <img 
+                          crossOrigin="anonymous" 
+                          src={(item.custom_design_url || item.designs?.image_url) + '?t=' + Date.now()} 
+                          alt="Diseño" 
+                          className="w-full h-auto object-contain" 
+                          style={{ maxHeight: '350px' }} 
+                        />
                       </div>
                     </div>
                   ) : (
