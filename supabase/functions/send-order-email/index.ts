@@ -4,6 +4,7 @@ import { SmtpClient } from "https://deno.land/x/smtp/mod.ts"
 // Estas variables las guardarás en Supabase de forma segura
 const SMTP_USERNAME = Deno.env.get('SMTP_USERNAME') // Ej: tu-correo@gmail.com
 const SMTP_PASSWORD = Deno.env.get('SMTP_PASSWORD') // Ej: Contraseña de Aplicación de Google
+const SMTP_DESTINATARIO = Deno.env.get('SMTP_DESTINATARIO') // Correo de la persona que recibe el aviso
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,12 +28,9 @@ serve(async (req) => {
       })
     }
 
-    if (!SMTP_USERNAME || !SMTP_PASSWORD) {
-      throw new Error("Faltan configurar SMTP_USERNAME o SMTP_PASSWORD")
+    if (!SMTP_USERNAME || !SMTP_PASSWORD || !SMTP_DESTINATARIO) {
+      throw new Error("Faltan configurar variables de entorno (USERNAME, PASSWORD o DESTINATARIO)")
     }
-
-    // IMPORTANTE: Pon aquí el correo de la persona que debe recibir la notificación
-    const DESTINATARIO = "produccion@altiv.com" 
 
     const client = new SmtpClient()
 
@@ -71,7 +69,7 @@ serve(async (req) => {
     // Enviamos el correo
     await client.send({
       from: SMTP_USERNAME,
-      to: DESTINATARIO,
+      to: SMTP_DESTINATARIO,
       subject: subjectText,
       content: "Un cliente acaba de confirmar un pedido. Ingresa al sistema para revisarlo.",
       html: htmlBody,
