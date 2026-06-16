@@ -705,7 +705,13 @@ const AdminOrderDetails = () => {
       const toastId = toast.loading('Generando imagen...');
       const dataUrl = await toPng(element, { 
         pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        style: {
+          margin: '0',
+          transform: 'none'
+        }
       });
       const link = document.createElement('a');
       link.download = `vista-previa-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.png`;
