@@ -22,10 +22,21 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   useEffect(() => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
-        setShowProfileError(true);
-      }, 4000); // 4 segundos es suficiente para esperar
+        const hasAutoRepaired = sessionStorage.getItem('auto_repair_attempted');
+        if (!hasAutoRepaired) {
+          console.log("AuthGuard - Attempting automatic repair...");
+          sessionStorage.setItem('auto_repair_attempted', 'true');
+          localStorage.clear();
+          window.location.reload();
+        } else {
+          setShowProfileError(true);
+        }
+      }, 3000); // 3 segundos es suficiente para esperar
     } else {
       setShowProfileError(false);
+      if (profile) {
+        sessionStorage.removeItem('auto_repair_attempted');
+      }
       if (profileTimerRef.current) {
         clearTimeout(profileTimerRef.current);
         profileTimerRef.current = null;
