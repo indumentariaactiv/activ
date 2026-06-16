@@ -56,7 +56,7 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
         {/* Logo */}
         <div className="w-[120px] border-r border-black flex items-center justify-center p-1 bg-white">
           {logoUrl ? (
-            <img src={logoUrl} alt="ALTIV" className="h-full object-contain max-h-[40px]" />
+            <img crossOrigin="anonymous" src={logoUrl} alt="ALTIV" className="h-full object-contain max-h-[40px]" />
           ) : (
             <span className="font-black text-lg tracking-tighter">ALTIV</span>
           )}
@@ -241,7 +241,7 @@ export const ProductionSheet: React.FC<ProductionSheetProps> = ({ order, logoUrl
                   {(item.custom_design_url || item.designs?.image_url) ? (
                     <div className="w-[300px] h-auto flex flex-col items-center gap-1">
                       <div className="w-full bg-white p-2">
-                        <img src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-full h-auto object-contain" style={{ maxHeight: '350px' }} />
+                        <img crossOrigin="anonymous" src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-full h-auto object-contain" style={{ maxHeight: '350px' }} />
                       </div>
                     </div>
                   ) : (
