@@ -22,23 +22,10 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   useEffect(() => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
-        const hasAutoRetried = sessionStorage.getItem('auto_retry_profile');
-        if (!hasAutoRetried) {
-          sessionStorage.setItem('auto_retry_profile', 'true');
-          // Forzar la conexión automáticamente
-          supabase.auth.refreshSession().finally(() => {
-            window.location.reload();
-          });
-        } else {
-          // Solo mostrar el error si el reintento automático ya falló
-          setShowProfileError(true);
-        }
+        setShowProfileError(true);
       }, 4000); // 4 segundos es suficiente para esperar
     } else {
       setShowProfileError(false);
-      if (profile) {
-        sessionStorage.removeItem('auto_retry_profile');
-      }
       if (profileTimerRef.current) {
         clearTimeout(profileTimerRef.current);
         profileTimerRef.current = null;
@@ -50,7 +37,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
         clearTimeout(profileTimerRef.current);
       }
     };
-  }, [user, profile, isLoading]);
+  }, [user?.id, profile?.id, isLoading]);
 
   if (isLoading) {
     return (
