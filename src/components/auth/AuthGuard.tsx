@@ -18,14 +18,27 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) => {
   const [showProfileError, setShowProfileError] = useState(false);
   const profileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // If user exists but profile is null, wait 3 seconds before showing error UI
+  // If user exists but profile is null, wait before taking action
   useEffect(() => {
     if (user && !profile && !isLoading) {
       profileTimerRef.current = setTimeout(() => {
-        setShowProfileError(true);
-      }, 8000); // Wait 8 seconds on mobile/slow connections
+        const hasAutoRetried = sessionStorage.getItem('auto_retry_profile');
+        if (!hasAutoRetried) {
+          sessionStorage.setItem('auto_retry_profile', 'true');
+          // Forzar la conexión automáticamente
+          supabase.auth.refreshSession().finally(() => {
+            window.location.reload();
+          });
+        } else {
+          // Solo mostrar el error si el reintento automático ya falló
+          setShowProfileError(true);
+        }
+      }, 6000); // Wait 6 segundos
     } else {
       setShowProfileError(false);
+      if (profile) {
+        sessionStorage.removeItem('auto_retry_profile');
+      }
       if (profileTimerRef.current) {
         clearTimeout(profileTimerRef.current);
         profileTimerRef.current = null;
