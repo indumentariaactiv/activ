@@ -659,13 +659,31 @@ const AdminOrderDetails = () => {
       if (imageUrl) {
         const base64 = await getBase64Image(imageUrl);
         if (base64) {
-          const imgW = 90;
-          const imgH = 117;
-          const imgX = itemX + tableWidth + 5;
-          doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
-          afterImgY = tableStartY + imgH;
-          doc.setFontSize(6); doc.setTextColor(150);
-          doc.text('DISEÑO ADJUNTO', imgX + imgW/2, tableStartY + imgH + 8, { align: 'center' });
+          try {
+            const imgProps = doc.getImageProperties(base64);
+            let imgW = 110;
+            let imgH = (imgProps.height * imgW) / imgProps.width;
+            
+            if (imgH > 160) {
+              imgH = 160;
+              imgW = (imgProps.width * imgH) / imgProps.height;
+            }
+            
+            const availableW = colWidth - tableWidth - 10;
+            const offsetX = (availableW - imgW) / 2;
+            const imgX = itemX + tableWidth + 5 + Math.max(0, offsetX);
+            
+            doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
+            afterImgY = tableStartY + imgH;
+            doc.setFontSize(6); doc.setTextColor(150);
+            doc.text('DISEÑO ADJUNTO', imgX + imgW/2, tableStartY + imgH + 8, { align: 'center' });
+          } catch (e) {
+            const imgW = 90;
+            const imgH = 117;
+            const imgX = itemX + tableWidth + 5;
+            doc.addImage(base64, 'JPEG', imgX, tableStartY, imgW, imgH);
+            afterImgY = tableStartY + imgH;
+          }
         }
       }
 
