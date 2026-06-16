@@ -115,7 +115,7 @@ const Register = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[var(--color-primary)] focus:outline-none"
               >
-                <span className="material-symbols-outlined text-xl">
+                <span translate="no" className="material-symbols-outlined text-xl">
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
@@ -135,7 +135,7 @@ const Register = () => {
           
           <button type="submit" disabled={loading} className="btn btn-primary mt-4 group relative overflow-hidden">
             {loading ? 'Procesando...' : 'Registrarse'}
-            <span className="material-symbols-outlined text-[1.2rem] group-hover:translate-x-1 transition-transform">person_add</span>
+            <span translate="no" className="material-symbols-outlined text-[1.2rem] group-hover:translate-x-1 transition-transform">person_add</span>
           </button>
         </form>
 

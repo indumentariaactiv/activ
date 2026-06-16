@@ -447,7 +447,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
               <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
               <div className="flex flex-col md:flex-row items-center gap-3">
                 <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn bg-white border-2 border-dashed border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-container)]/20 text-sm px-6 py-3 whitespace-nowrap w-full md:w-auto font-black shadow-sm">
-                  <span className="material-symbols-outlined">{uploading ? 'hourglass_empty' : 'upload_file'}</span>
+                  <span translate="no" className="material-symbols-outlined">{uploading ? 'hourglass_empty' : 'upload_file'}</span>
                   {uploading ? 'Subiendo...' : 'Subir Archivo de Prenda'}
                 </button>
               </div>
@@ -458,12 +458,12 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                     <img src={customDesignUrl} alt="Preview" className="w-20 sm:w-32 aspect-[4/5] object-cover rounded-lg bg-white shadow-md ring-1 ring-black/5 flex-shrink-0" />
                   ) : (
                      <div className="w-20 sm:w-32 aspect-[4/5] bg-[var(--color-primary-container)] text-[var(--color-primary)] rounded-lg flex items-center justify-center shadow-inner flex-shrink-0">
-                       <span className="material-symbols-outlined text-3xl sm:text-4xl">description</span>
+                       <span translate="no" className="material-symbols-outlined text-3xl sm:text-4xl">description</span>
                      </div>
                   )}
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <p className="text-sm text-[var(--color-primary)] font-black flex items-start sm:items-center m-0 uppercase tracking-widest break-words leading-tight">
-                      <span className="material-symbols-outlined mr-2 text-[1.2rem] flex-shrink-0 shrink-0 relative top-[2px] sm:top-0">check_circle</span> 
+                      <span translate="no" className="material-symbols-outlined mr-2 text-[1.2rem] flex-shrink-0 shrink-0 relative top-[2px] sm:top-0">check_circle</span> 
                       <span>Diseño Cargado</span>
                     </p>
                     <p className="text-[11px] sm:text-xs text-[var(--color-on-surface-variant)] mt-2 leading-relaxed">Este archivo se enviará a producción con tu pedido.</p>
@@ -521,7 +521,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                                 <td className="p-3 text-[10px] uppercase font-bold text-[var(--color-on-surface-variant)]">{p.role || '-'}</td>
                                 <td className="p-3 text-right">
                                   <button type="button" onClick={() => removePersonRow(p.id)} className="text-[var(--color-error)] hover:bg-[var(--color-error-container)] p-1.5 rounded-full transition-colors">
-                                    <span className="material-symbols-outlined text-[1.2rem]">delete</span>
+                                    <span translate="no" className="material-symbols-outlined text-[1.2rem]">delete</span>
                                   </button>
                                 </td>
                               </tr>
@@ -589,7 +589,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
                         style={{ background: 'linear-gradient(135deg, var(--color-primary), #00a05a)' }}
                        >
                         AGREGAR A LA LISTA
-                        <span className="material-symbols-outlined">add_circle</span>
+                        <span translate="no" className="material-symbols-outlined">add_circle</span>
                       </button>
                     </div>
                   </div>
@@ -662,7 +662,7 @@ export const GarmentForm: React.FC<GarmentFormProps> = ({ initialData, types, on
           <div className="flex gap-3 w-full sm:w-auto">
             <button type="submit" className="btn btn-primary shadow-xl w-full sm:w-auto justify-center" style={{ background: 'linear-gradient(135deg, #00c06a, #00a05a)' }}>
               {initialData ? 'Guardar Cambios' : 'Confirmar Prenda al Pedido'}
-              <span className="material-symbols-outlined text-sm">{initialData ? 'check_circle' : 'add_task'}</span>
+              <span translate="no" className="material-symbols-outlined text-sm">{initialData ? 'check_circle' : 'add_task'}</span>
             </button>
           </div>
         </div>

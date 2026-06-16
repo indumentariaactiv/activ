@@ -131,7 +131,7 @@ const ClientDashboard = () => {
           </h1>
         </div>
         <Link to="/cliente/pedido/nuevo" className="btn btn-primary w-full md:w-auto shadow-lg hover:shadow-[0_0_20px_var(--color-primary-container)]">
-          <span className="material-symbols-outlined">add_circle</span>
+          <span translate="no" className="material-symbols-outlined">add_circle</span>
           Comenzar Pedido
         </Link>
       </div>
@@ -141,7 +141,7 @@ const ClientDashboard = () => {
       ) : orders.length === 0 ? (
         <div className="card text-center p-12">
           <div className="w-16 h-16 bg-[var(--color-surface-container-high)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="material-symbols-outlined text-[var(--color-primary)] text-3xl">inventory_2</span>
+            <span translate="no" className="material-symbols-outlined text-[var(--color-primary)] text-3xl">inventory_2</span>
           </div>
           <h2 className="font-headline text-xl font-bold mb-2">No tienes pedidos aún</h2>
           <p className="text-[var(--color-on-surface-variant)] text-sm mb-6 max-w-md mx-auto">
@@ -189,7 +189,7 @@ const ClientDashboard = () => {
 
           {filteredOrders.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-[var(--color-outline-variant)]/30 bg-[var(--color-surface-container-low)] p-10 text-center">
-               <span className="material-symbols-outlined text-4xl text-[var(--color-outline-variant)] mb-2">inbox</span>
+               <span translate="no" className="material-symbols-outlined text-4xl text-[var(--color-outline-variant)] mb-2">inbox</span>
                <p className="font-bold text-[var(--color-on-surface-variant)]">No hay pedidos en esta sección.</p>
             </div>
           ) : (
@@ -225,7 +225,7 @@ const ClientDashboard = () => {
                           className="inline-flex items-center justify-center rounded-full p-2 text-[var(--color-error)] hover:bg-[var(--color-error-container)] transition-colors"
                           title="Eliminar pedido"
                         >
-                          <span className="material-symbols-outlined text-lg">delete</span>
+                          <span translate="no" className="material-symbols-outlined text-lg">delete</span>
                         </button>
                       )}
                     </div>

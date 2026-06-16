@@ -83,7 +83,7 @@ const AdminDashboard = () => {
         </div>
         <div className="flex gap-2">
             <button onClick={fetchGlobalOrders} className="btn btn-tertiary">
-                <span className="material-symbols-outlined text-[1.2rem]">refresh</span>
+                <span translate="no" className="material-symbols-outlined text-[1.2rem]">refresh</span>
                 Actualizar
             </button>
         </div>
@@ -142,7 +142,7 @@ const AdminDashboard = () => {
                         
                         <div className="mt-4 flex flex-col gap-3 items-start">
                           <Link to={`/admin/pedido/${o.id}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-outline-variant)]/50 bg-[var(--color-surface-container-high)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white">
-                            <span className="material-symbols-outlined text-base">visibility</span>
+                            <span translate="no" className="material-symbols-outlined text-base">visibility</span>
                             {o.status === 'confirmed' ? 'Cargar Ficha' : o.status === 'in_production' ? 'Ver Producción' : 'Ver Detalles'}
                           </Link>
                           <span className="text-[11px] text-[var(--color-on-surface-variant)]">{o.status === 'confirmed' ? 'Pedido listo para ficha técnica' : o.status === 'in_production' ? 'En la línea de producción' : 'Pedido finalizado'}</span>
@@ -153,7 +153,7 @@ const AdminDashboard = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px]">
                           <div className="space-y-1.5 pt-2 border-t border-[var(--color-outline-variant)]/10 col-span-2">
                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-sm text-[var(--color-primary)] opacity-60">person</span>
+                                <span translate="no" className="material-symbols-outlined text-sm text-[var(--color-primary)] opacity-60">person</span>
                                 <span className="font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] text-[9px]">Datos de Contacto</span>
                              </div>
                               <div className="grid grid-cols-2 gap-y-1">
@@ -173,7 +173,7 @@ const AdminDashboard = () => {
                           
                           <div className="space-y-1.5 pt-2 border-t border-[var(--color-outline-variant)]/10 col-span-2">
                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-sm text-[var(--color-primary)] opacity-60">local_shipping</span>
+                                <span translate="no" className="material-symbols-outlined text-sm text-[var(--color-primary)] opacity-60">local_shipping</span>
                                 <span className="font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] text-[9px]">Logística y Propósito</span>
                              </div>
                               {(() => {

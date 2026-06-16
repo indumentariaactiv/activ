@@ -504,7 +504,7 @@ const ClientOrderDetails = () => {
 
         <div className="relative z-10 flex items-center gap-3">
           <Link to="/cliente/dashboard" className="btn btn-secondary text-xs h-10">
-            <span className="material-symbols-outlined text-[1.1rem]">arrow_back</span>
+            <span translate="no" className="material-symbols-outlined text-[1.1rem]">arrow_back</span>
             Dashboard
           </Link>
         </div>
@@ -540,7 +540,7 @@ const ClientOrderDetails = () => {
             onClick={handlePreviewClick}
             className="btn btn-primary bg-[var(--color-primary)] text-white px-8 py-4 rounded-2xl font-black text-lg uppercase shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
-            <span className="material-symbols-outlined mr-2">visibility</span>
+            <span translate="no" className="material-symbols-outlined mr-2">visibility</span>
             Ver Ficha de Producción
           </button>
         </div>
@@ -561,7 +561,7 @@ const ClientOrderDetails = () => {
               className="flex-1 flex items-center justify-center gap-3 px-6 py-5 rounded-2xl border-2 border-[var(--color-outline-variant)]/30 bg-[var(--color-surface-container-low)] hover:bg-[var(--color-surface-container)] hover:border-[var(--color-primary)]/40 transition-all group"
             >
               <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-container)] flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-[var(--color-primary)] text-[1.2rem]">edit</span>
+                <span translate="no" className="material-symbols-outlined text-[var(--color-primary)] text-[1.2rem]">edit</span>
               </div>
               <div className="text-left">
                 <p className="font-black text-sm uppercase tracking-wide">Seguir Editando</p>
@@ -575,7 +575,7 @@ const ClientOrderDetails = () => {
               className="flex-1 flex items-center justify-center gap-3 px-6 py-5 rounded-2xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-all group"
             >
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-green-700 text-[1.2rem]">send</span>
+                <span translate="no" className="material-symbols-outlined text-green-700 text-[1.2rem]">send</span>
               </div>
               <div className="text-left">
                 <p className="font-black text-sm uppercase tracking-wide text-green-800">Confirmar y Enviar</p>
@@ -595,7 +595,7 @@ const ClientOrderDetails = () => {
             ? 'bg-green-50 border border-green-200'
             : 'bg-amber-50 border border-amber-200'
         }`}>
-          <span className={`material-symbols-outlined text-3xl ${
+          <span translate="no" className={`material-symbols-outlined text-3xl ${
             order.status === 'in_production' ? 'text-blue-600' :
             order.status === 'delivered' ? 'text-green-600' : 'text-amber-600'
           }`}>
@@ -622,7 +622,7 @@ const ClientOrderDetails = () => {
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-green-600 text-3xl">send</span>
+                <span translate="no" className="material-symbols-outlined text-green-600 text-3xl">send</span>
               </div>
               <h2 className="font-headline text-2xl font-black uppercase tracking-tight mb-2">
                 Confirmar Pedido
@@ -634,7 +634,7 @@ const ClientOrderDetails = () => {
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex gap-3">
-              <span className="material-symbols-outlined text-amber-600 text-xl flex-shrink-0 mt-0.5">warning</span>
+              <span translate="no" className="material-symbols-outlined text-amber-600 text-xl flex-shrink-0 mt-0.5">warning</span>
               <p className="text-xs text-amber-800 leading-relaxed">
                 Esta acción es irreversible. Asegurate de que todos los talles, prendas y datos de envío sean correctos antes de continuar.
               </p>
@@ -656,7 +656,7 @@ const ClientOrderDetails = () => {
                 {isConfirming ? (
                   <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Enviando...</>
                 ) : (
-                  <><span className="material-symbols-outlined text-[1.1rem]">check</span> Sí, Confirmar</>
+                  <><span translate="no" className="material-symbols-outlined text-[1.1rem]">check</span> Sí, Confirmar</>
                 )}
               </button>
             </div>
@@ -675,7 +675,7 @@ const ClientOrderDetails = () => {
                     onClick={exportToPDF}
                     className="btn btn-primary px-4 py-1.5 text-sm"
                   >
-                    <span className="material-symbols-outlined mr-1 text-sm">download</span>
+                    <span translate="no" className="material-symbols-outlined mr-1 text-sm">download</span>
                     Descargar
                   </button>
                   <button

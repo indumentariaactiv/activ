@@ -128,7 +128,7 @@ const Login = () => {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary focus:outline-none"
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               >
-                <span className="material-symbols-outlined text-xl">
+                <span translate="no" className="material-symbols-outlined text-xl">
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
@@ -137,7 +137,7 @@ const Login = () => {
           
           <button type="submit" disabled={loading} className="bg-gradient-to-br from-primary to-primary-container text-on-primary py-3 px-6 rounded-lg font-bold text-sm shadow-md hover:opacity-90 transition-all flex items-center justify-center gap-2 group relative overflow-hidden mt-2">
             {loading ? 'Ingresando...' : 'Iniciar Sesión'}
-            <span className="material-symbols-outlined text-[1.2rem] group-hover:translate-x-1 transition-transform">arrow_right_alt</span>
+            <span translate="no" className="material-symbols-outlined text-[1.2rem] group-hover:translate-x-1 transition-transform">arrow_right_alt</span>
           </button>
         </form>
 
@@ -151,7 +151,7 @@ const Login = () => {
               onClick={handleInstall}
               className="flex items-center justify-center gap-2 mx-auto px-4 py-2 rounded-full bg-surface-container-highest text-primary text-xs font-bold border border-primary/20 hover:bg-primary/10 transition-colors animate-pulse"
             >
-              <span className="material-symbols-outlined text-[1.1rem]">download_for_offline</span>
+              <span translate="no" className="material-symbols-outlined text-[1.1rem]">download_for_offline</span>
               Instalar Aplicación
             </button>
           )}

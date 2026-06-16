@@ -66,7 +66,7 @@ const AppLayout = () => {
                       : 'text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-container-low)]'
                     }`}
                 >
-                  <span className="material-symbols-outlined text-[1.2rem]">{item.icon}</span>
+                  <span translate="no" className="material-symbols-outlined text-[1.2rem]">{item.icon}</span>
                   {item.label}
                 </Link>
               );
@@ -80,7 +80,7 @@ const AppLayout = () => {
               onClick={handleInstall}
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-primary-container)] text-[var(--color-primary)] border border-[var(--color-primary)]/20 hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm font-bold text-xs"
             >
-              <span className="material-symbols-outlined text-lg">download_for_offline</span>
+              <span translate="no" className="material-symbols-outlined text-lg">download_for_offline</span>
               <span>Instalar App</span>
             </button>
           )}
@@ -100,7 +100,7 @@ const AppLayout = () => {
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-lg">logout</span>
+                <span translate="no" className="material-symbols-outlined text-lg">logout</span>
                 <span className="hidden sm:inline">Salir</span>
               </>
             )}
@@ -128,7 +128,7 @@ const AppLayout = () => {
                 }`}
             >
               <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-[var(--color-primary-container)] text-[var(--color-primary)] shadow-sm' : ''}`}>
-                <span className="material-symbols-outlined text-[1.5rem]">{item.icon}</span>
+                <span translate="no" className="material-symbols-outlined text-[1.5rem]">{item.icon}</span>
               </div>
               <span className={`text-[10px] font-bold tracking-wide ${isActive ? 'font-black' : ''}`}>{item.label}</span>
             </Link>
@@ -140,7 +140,7 @@ const AppLayout = () => {
             className="flex flex-col items-center gap-1 px-4 py-2 transition-all rounded-xl active:scale-95 text-[var(--color-primary)]"
           >
             <div className="p-1.5 rounded-xl bg-[var(--color-primary)] text-white shadow-lg animate-bounce">
-              <span className="material-symbols-outlined text-[1.5rem]">download_for_offline</span>
+              <span translate="no" className="material-symbols-outlined text-[1.5rem]">download_for_offline</span>
             </div>
             <span className="text-[10px] font-black tracking-wide">Instalar</span>
           </button>

@@ -25,7 +25,7 @@ function ReloadPrompt() {
         <div className="bg-white rounded-2xl shadow-2xl border border-[var(--color-outline-variant)]/20 p-6 max-w-sm animate-in slide-in-from-bottom-10 duration-300">
           <div className="flex gap-4 items-start mb-4">
             <div className={`p-3 rounded-full ${needRefresh ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
-              <span className="material-symbols-outlined">
+              <span translate="no" className="material-symbols-outlined">
                 {needRefresh ? 'system_update' : 'cloud_done'}
               </span>
             </div>

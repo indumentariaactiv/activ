@@ -701,7 +701,7 @@ const AdminOrderDetails = () => {
     <div className="max-w-[98%] mx-auto pb-[120px]">
       <div className="mb-4 flex items-center justify-between">
         <button onClick={() => navigate('/admin/dashboard', { replace: true })} className="text-[var(--color-primary)] text-xs font-bold flex items-center hover:underline bg-[var(--color-primary)]/5 px-3 py-1.5 rounded-full">
-          <span className="material-symbols-outlined text-xs mr-1">arrow_back</span>
+          <span translate="no" className="material-symbols-outlined text-xs mr-1">arrow_back</span>
           Volver al Panel
         </button>
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-on-surface-variant)] opacity-50">Admin Order View v2.0</span>
@@ -733,7 +733,7 @@ const AdminOrderDetails = () => {
                   onClick={() => updateOrderName(tempName)}
                   className="text-[var(--color-primary)] hover:text-[var(--color-primary)]/80"
                 >
-                  <span className="material-symbols-outlined text-lg">check</span>
+                  <span translate="no" className="material-symbols-outlined text-lg">check</span>
                 </button>
                 <button
                   onClick={() => {
@@ -742,7 +742,7 @@ const AdminOrderDetails = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <span className="material-symbols-outlined text-lg">close</span>
+                  <span translate="no" className="material-symbols-outlined text-lg">close</span>
                 </button>
               </div>
             ) : (
@@ -755,7 +755,7 @@ const AdminOrderDetails = () => {
                   }}
                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-[var(--color-primary)] transition-opacity"
                 >
-                  <span className="material-symbols-outlined text-sm">edit</span>
+                  <span translate="no" className="material-symbols-outlined text-sm">edit</span>
                 </button>
               </div>
             )}
@@ -775,14 +775,14 @@ const AdminOrderDetails = () => {
             <p className="font-bold text-sm text-[var(--color-on-surface)]">{order.profiles?.team_name || order.profiles?.name}</p>
             <div className="grid grid-cols-1 gap-1 mt-1 text-xs">
               <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
-                <span className="material-symbols-outlined text-[14px]">mail</span>
+                <span translate="no" className="material-symbols-outlined text-[14px]">mail</span>
                 {(() => {
                    const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
                    return shipInfo?.email || order.profiles?.email || 'No especificado';
                 })()}
               </div>
               <div className="flex items-center gap-1.5 text-[var(--color-on-surface-variant)]">
-                <span className="material-symbols-outlined text-[14px]">call</span>
+                <span translate="no" className="material-symbols-outlined text-[14px]">call</span>
                 {(() => {
                    const shipInfo = Array.isArray(order.client_shipping_info) ? order.client_shipping_info[0] : order.client_shipping_info;
                    return shipInfo?.phone || 'No especificado';
@@ -833,14 +833,14 @@ const AdminOrderDetails = () => {
               onClick={handlePreviewClick}
               className="px-3 py-1.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition-all rounded"
             >
-              <span className="material-symbols-outlined text-[1rem]">visibility</span>
+              <span translate="no" className="material-symbols-outlined text-[1rem]">visibility</span>
               <span className="hidden sm:inline">Vista Previa</span>
             </button>
             <button 
               onClick={exportToPDF}
               className="px-3 py-1.5 text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition-all shadow-sm rounded"
             >
-              <span className="material-symbols-outlined text-[1rem]">download</span>
+              <span translate="no" className="material-symbols-outlined text-[1rem]">download</span>
               <span className="hidden sm:inline">Descargar</span> PDF
             </button>
           </div>
@@ -856,7 +856,7 @@ const AdminOrderDetails = () => {
                 disabled={updatingStatus}
                 className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-[var(--color-primary)] text-white hover:bg-blue-700 shadow-sm transition-all active:scale-95"
               >
-                <span className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'factory'}</span>
+                <span translate="no" className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'factory'}</span>
                 {updatingStatus ? 'Procesando...' : 'Enviar a Fábrica'}
               </button>
             )}
@@ -866,13 +866,13 @@ const AdminOrderDetails = () => {
                 disabled={updatingStatus}
                 className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 shadow-sm transition-all active:scale-95"
               >
-                <span className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'check_circle'}</span>
+                <span translate="no" className="material-symbols-outlined text-[1rem]">{updatingStatus ? 'hourglass_empty' : 'check_circle'}</span>
                 {updatingStatus ? 'Procesando...' : 'Finalizar Pedido'}
               </button>
             )}
             {order.status === 'delivered' && (
               <div className="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 bg-gray-100 text-gray-500 cursor-not-allowed">
-                <span className="material-symbols-outlined text-[1rem]">verified</span>
+                <span translate="no" className="material-symbols-outlined text-[1rem]">verified</span>
                 Finalizado
               </div>
             )}
@@ -885,7 +885,7 @@ const AdminOrderDetails = () => {
         {/* Subir Diseño */}
         <div className="bg-white rounded-xl p-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm">upload_file</span>
+            <span translate="no" className="material-symbols-outlined text-sm">upload_file</span>
             Subir Diseño Adicional
           </h3>
           <input
@@ -903,7 +903,7 @@ const AdminOrderDetails = () => {
         {/* Comentario y Observación */}
         <div className="lg:col-span-2 bg-white rounded-xl p-4 border border-[var(--color-outline-variant)]/20 shadow-sm">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm">comment</span>
+            <span translate="no" className="material-symbols-outlined text-sm">comment</span>
             Comentario para Producción
           </h3>
           <div className="flex gap-2">
@@ -920,7 +920,7 @@ const AdminOrderDetails = () => {
               disabled={!adminComment.trim()}
               className="btn btn-secondary px-3 py-1"
             >
-              <span className="material-symbols-outlined text-sm">add</span>
+              <span translate="no" className="material-symbols-outlined text-sm">add</span>
             </button>
           </div>
         </div>
@@ -941,7 +941,7 @@ const AdminOrderDetails = () => {
                     </p>
                   </div>
                   <a href={design.design_url} target="_blank" rel="noreferrer" className="text-[var(--color-primary)]">
-                    <span className="material-symbols-outlined text-sm">visibility</span>
+                    <span translate="no" className="material-symbols-outlined text-sm">visibility</span>
                   </a>
                 </div>
               ))}
@@ -984,7 +984,7 @@ const AdminOrderDetails = () => {
                 
                 return (
                     <div key={phase.key} className={`flex-1 flex flex-col items-center py-4 border-r last:border-0 border-[var(--color-outline-variant)]/10 transition-all ${isActive ? 'bg-[var(--color-primary-container)]/10' : ''}`}>
-                        <span className={`material-symbols-outlined ${isPast ? 'text-[var(--color-primary)]' : 'text-[var(--color-outline-variant)]'} ${isActive ? 'scale-125 animate-pulse' : ''}`}>
+                        <span translate="no" className={`material-symbols-outlined ${isPast ? 'text-[var(--color-primary)]' : 'text-[var(--color-outline-variant)]'} ${isActive ? 'scale-125 animate-pulse' : ''}`}>
                             {phase.icon}
                         </span>
                         <p className={`text-[10px] font-black mt-2 tracking-widest ${isPast ? 'text-[var(--color-on-surface)]' : 'text-[var(--color-outline-variant)]'}`}>
@@ -1011,7 +1011,7 @@ const AdminOrderDetails = () => {
               <div className="flex items-center gap-4 my-3">
                 <img src={item.custom_design_url || item.designs?.image_url} alt="Diseño" className="w-24 aspect-[4/5] object-contain rounded border border-[var(--color-outline-variant)]/20 shadow-sm bg-white" />
                 <a href={item.custom_design_url || item.designs?.image_url} target="_blank" rel="noreferrer" className="text-sm text-[var(--color-primary)] font-bold hover:underline">
-                  Ver Diseño <span className="material-symbols-outlined text-xs align-middle">open_in_new</span>
+                  Ver Diseño <span translate="no" className="material-symbols-outlined text-xs align-middle">open_in_new</span>
                 </a>
               </div>
             )}
@@ -1232,7 +1232,7 @@ const AdminOrderDetails = () => {
                 <div className="flex items-center gap-4 mb-6">
                   <h4 className="font-headline text-md font-extrabold uppercase tracking-tight flex items-center gap-2">
                     <span className="w-10 h-10 rounded-full bg-[var(--color-primary-container)]/10 text-[var(--color-primary)] flex items-center justify-center">
-                      <span className="material-symbols-outlined">format_list_bulleted</span>
+                      <span translate="no" className="material-symbols-outlined">format_list_bulleted</span>
                     </span>
                     Planilla de Estampado Individual
                   </h4>
@@ -1293,7 +1293,7 @@ const AdminOrderDetails = () => {
                     onClick={exportToPDF}
                     className="btn btn-primary px-4 py-1.5 text-sm"
                   >
-                    <span className="material-symbols-outlined mr-1 text-sm">download</span>
+                    <span translate="no" className="material-symbols-outlined mr-1 text-sm">download</span>
                     Descargar
                   </button>
                   <button 

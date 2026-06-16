@@ -645,7 +645,7 @@ const NewOrder = () => {
                 className="btn btn-primary w-full sm:w-auto justify-center"
               >
                 Continuar con Prendas
-                <span className="material-symbols-outlined">arrow_forward</span>
+                <span translate="no" className="material-symbols-outlined">arrow_forward</span>
               </button>
             </div>
           </div>
@@ -672,12 +672,12 @@ const NewOrder = () => {
               <>
                 {orderItems.length === 0 ? (
                   <div className="text-center py-10 bg-[var(--color-surface-container-low)] rounded-xl border border-dashed border-[var(--color-outline-variant)]">
-                    <span className="material-symbols-outlined mx-auto text-5xl text-[var(--color-outline-variant)]">apparel</span>
+                    <span translate="no" className="material-symbols-outlined mx-auto text-5xl text-[var(--color-outline-variant)]">apparel</span>
                     <p className="font-bold">Aún no hay prendas en este pedido.</p>
                     <p className="text-sm text-[var(--color-on-surface-variant)] mb-4">Agrega remeras, shorts o cualquier indumentaria necesaria para este pedido.</p>
                     
                     <button onClick={() => setShowGarmentForm(true)} className="btn btn-secondary mx-auto">
-                      <span className="material-symbols-outlined text-[1.2rem]">add</span>
+                      <span translate="no" className="material-symbols-outlined text-[1.2rem]">add</span>
                       Agregar Prenda
                     </button>
                   </div>
@@ -694,7 +694,7 @@ const NewOrder = () => {
                           <div key={item.id} className="flex justify-between items-center bg-[var(--color-surface-container-lowest)] p-4 rounded-xl border border-[var(--color-outline-variant)]/20 shadow-sm">
                             <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-[var(--color-surface-container-high)] rounded-lg flex items-center justify-center text-[var(--color-on-surface-variant)]">
-                                <span className="material-symbols-outlined">style</span>
+                                <span translate="no" className="material-symbols-outlined">style</span>
                               </div>
                               <div>
                                 <p className="font-bold">{item.garment_type_name}</p>
@@ -704,7 +704,7 @@ const NewOrder = () => {
                             <div className="text-right flex items-center justify-end gap-1">
                               <p className="font-headline font-black text-xl text-[var(--color-primary)] mr-2">{totalUnits} <span className="text-xs font-body font-normal text-[var(--color-on-surface-variant)]">uni</span></p>
                               <button onClick={() => { setEditingGarment(item); setShowGarmentForm(true); }} title="Editar prenda" className="text-[var(--color-on-surface-variant)] hover:text-[var(--color-primary)] transition-colors p-2">
-                                <span className="material-symbols-outlined text-[1.2rem]">edit</span>
+                                <span translate="no" className="material-symbols-outlined text-[1.2rem]">edit</span>
                               </button>
                               <button 
                                 onClick={() => {
@@ -715,7 +715,7 @@ const NewOrder = () => {
                                 title="Eliminar prenda" 
                                 className="text-[var(--color-on-surface-variant)] hover:text-red-500 transition-colors p-2"
                               >
-                                <span className="material-symbols-outlined text-[1.2rem]">delete</span>
+                                <span translate="no" className="material-symbols-outlined text-[1.2rem]">delete</span>
                               </button>
                             </div>
                           </div>
@@ -724,7 +724,7 @@ const NewOrder = () => {
                     </div>
                     <div className="mt-4 flex justify-center">
                       <button onClick={() => setShowGarmentForm(true)} className="btn btn-tertiary">
-                        <span className="material-symbols-outlined">add</span>
+                        <span translate="no" className="material-symbols-outlined">add</span>
                         Agregar Otra Prenda
                       </button>
                     </div>
@@ -735,7 +735,7 @@ const NewOrder = () => {
                   <button onClick={handlePrev} className="btn btn-tertiary w-full sm:w-auto">Atrás</button>
                   <button onClick={handleSubmitOrder} disabled={orderItems.length === 0 || loading} className="btn btn-primary w-full sm:w-auto justify-center">
                     {loading ? 'Guardando...' : 'Ver Resumen Final'}
-                    <span className="material-symbols-outlined flex">arrow_forward</span>
+                    <span translate="no" className="material-symbols-outlined flex">arrow_forward</span>
                   </button>
                 </div>
               </>
