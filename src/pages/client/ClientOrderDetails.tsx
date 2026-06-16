@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProductionSheet } from '../../components/orders/ProductionSheet';
 import logoAltiv from '../../assets/logo.png';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 const ClientOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -364,12 +364,10 @@ const ClientOrderDetails = () => {
     
     try {
       const toastId = toast.loading('Generando imagen...');
-      const canvas = await html2canvas(element, { 
-        scale: 2,
-        useCORS: true,
+      const dataUrl = await toPng(element, { 
+        pixelRatio: 2,
         backgroundColor: '#ffffff'
       });
-      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `vista-previa-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.png`;
       link.href = dataUrl;

@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProductionSheet } from '../../components/orders/ProductionSheet';
 import logoAltiv from '../../assets/logo.png';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 const AdminOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -703,20 +703,18 @@ const AdminOrderDetails = () => {
     
     try {
       const toastId = toast.loading('Generando imagen...');
-      const canvas = await html2canvas(element, { 
-        scale: 2,
-        useCORS: true,
+      const dataUrl = await toPng(element, { 
+        pixelRatio: 2,
         backgroundColor: '#ffffff'
       });
-      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `vista-previa-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.png`;
       link.href = dataUrl;
       link.click();
       toast.success('Imagen descargada correctamente', { id: toastId });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating image:', error);
-      toast.error('Error al generar la imagen');
+      toast.error(`Error al generar la imagen: ${error.message || 'Desconocido'}`);
     }
   };
 
