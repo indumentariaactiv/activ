@@ -25,13 +25,13 @@ function App() {
   useEffect(() => {
     let isSubscribed = true;
 
-    // Safety fallback: if auth takes too long, force unlock after 5s (increased for mobile)
+    // Safety fallback: if auth takes too long, force unlock after 7s
     const timeoutId = setTimeout(() => {
       if (useAppStore.getState().isLoading) {
         console.warn("Auth initialization timed out. Forcing app unlock.");
         setLoading(false);
       }
-    }, 10000); // Increased to 10s for mobile
+    }, 7000); // 7s es suficiente incluso en mobile lento
 
     const handleSession = async (session: any, event: string) => {
       if (!isSubscribed) return;
@@ -90,12 +90,23 @@ function App() {
     };
   }, [setUser, setProfile, setLoading]);
 
-  const fetchProfile = async (userId: string, retries = 3) => {
+  const fetchProfile = async (userId: string, retries = 2) => {
     if (fetchingProfileFor.current === userId) return;
     fetchingProfileFor.current = userId;
+
+    // Timeout global para el fetch del perfil: si tarda más de 6s, liberamos la app
+    const fetchTimeout = setTimeout(() => {
+      if (fetchingProfileFor.current === userId) {
+        console.warn("fetchProfile timed out for user:", userId.slice(0, 8));
+        fetchingProfileFor.current = null;
+        if (!useAppStore.getState().profile) {
+          setLoading(false);
+        }
+      }
+    }, 6000);
     
     try {
-      console.log(`Fetch - Attempting to load profile for: ${userId.slice(0, 8)} (Attempt ${4 - retries})`);
+      console.log(`Fetch - Attempting to load profile for: ${userId.slice(0, 8)} (Attempt ${3 - retries})`);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -106,9 +117,10 @@ function App() {
       if (error) {
         if (error.code === 'PGRST116') {
           if (retries > 0) {
-            console.log("Fetch - Profile not found yet, retrying in 1.5s...");
+            console.log("Fetch - Profile not found yet, retrying in 800ms...");
             fetchingProfileFor.current = null;
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 800));
+            clearTimeout(fetchTimeout);
             return fetchProfile(userId, retries - 1);
           } else {
             console.warn("Fetch - Profile not found after retries. Attempting to create fallback profile...");
@@ -163,6 +175,7 @@ function App() {
         setProfile(null);
       }
     } finally {
+      clearTimeout(fetchTimeout);
       fetchingProfileFor.current = null;
     }
   };
