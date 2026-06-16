@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ProductionSheet } from '../../components/orders/ProductionSheet';
 import logoAltiv from '../../assets/logo.png';
+import html2canvas from 'html2canvas';
 
 const AdminOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -388,7 +389,16 @@ const AdminOrderDetails = () => {
   };
 
   const generateProductionPDF = async () => {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const visibleSizes = dynamicSizes.filter(size =>
+      order.order_items.some((item: any) =>
+        item.has_personalization
+          ? item.order_item_persons?.some((p: any) => p.size === size)
+          : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
+      )
+    );
+    const isLandscape = visibleSizes.length > 7;
+
+    const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const leftMargin = 50;
     const contentWidth = pageWidth - leftMargin * 2;
@@ -452,14 +462,6 @@ const AdminOrderDetails = () => {
     let summaryStartY = headerY + headerH + 15;
 
     // --- SUMMARY TABLE ---
-    const visibleSizes = dynamicSizes.filter(size =>
-      order.order_items.some((item: any) =>
-        item.has_personalization
-          ? item.order_item_persons?.some((p: any) => p.size === size)
-          : item.order_item_sizes?.some((s: any) => s.size === size && s.quantity > 0)
-      )
-    );
-
     const summaryHeaders = ['Prendas / Talles', ...visibleSizes, 'Totales'];
     
     // Grouping by garment type
@@ -513,9 +515,12 @@ const AdminOrderDetails = () => {
     let itemStartY = currentY;
     let rowMaxY = currentY;
 
+    const columnsCount = isLandscape ? 3 : 2;
+    const colWidth = 240;
+
     for (let i = 0; i < order.order_items.length; i++) {
       const item = order.order_items[i];
-      const col = i % 2;
+      const col = i % columnsCount;
 
       if (col === 0 && i !== 0) {
         itemStartY = rowMaxY + 20;
@@ -528,7 +533,7 @@ const AdminOrderDetails = () => {
         rowMaxY = 50;
       }
 
-      let itemX = leftMargin + col * 240;
+      let itemX = leftMargin + col * colWidth;
       let localY = itemStartY;
 
       doc.setFontSize(9);
@@ -687,6 +692,32 @@ const AdminOrderDetails = () => {
     const doc = await generateProductionPDF();
     doc.save(`ficha-produccion-${order.name.replace(/\s+/g, '-').toLowerCase()}.pdf`);
     toast.success('PDF exportado correctamente');
+  };
+
+  const exportToImage = async () => {
+    const element = document.getElementById('production-sheet-preview');
+    if (!element) {
+      toast.error('Debes abrir la vista previa primero para descargar la imagen');
+      return;
+    }
+    
+    try {
+      const toastId = toast.loading('Generando imagen...');
+      const canvas = await html2canvas(element, { 
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `vista-previa-${order?.name?.replace(/\s+/g, '-').toLowerCase() || 'pedido'}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('Imagen descargada correctamente', { id: toastId });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast.error('Error al generar la imagen');
+    }
   };
 
   if (loading) return <div className="p-12 text-center animate-pulse font-headline">Cargando pedido...</div>;
@@ -1290,11 +1321,18 @@ const AdminOrderDetails = () => {
               <h2 className="text-lg font-bold text-gray-900">Vista Previa - Ficha de Producción</h2>
               <div className="flex gap-2">
                   <button 
+                    onClick={exportToImage}
+                    className="btn btn-secondary px-4 py-1.5 text-sm"
+                  >
+                    <span translate="no" className="material-symbols-outlined mr-1 text-sm">image</span>
+                    Descargar Imagen
+                  </button>
+                  <button 
                     onClick={exportToPDF}
                     className="btn btn-primary px-4 py-1.5 text-sm"
                   >
-                    <span translate="no" className="material-symbols-outlined mr-1 text-sm">download</span>
-                    Descargar
+                    <span translate="no" className="material-symbols-outlined mr-1 text-sm">picture_as_pdf</span>
+                    Descargar PDF
                   </button>
                   <button 
                     onClick={() => {
@@ -1310,7 +1348,7 @@ const AdminOrderDetails = () => {
             </div>
             
             <div className="flex-1 bg-gray-100 overflow-y-auto p-4 md:p-8">
-              <div className="bg-white shadow-xl mx-auto w-fit">
+              <div id="production-sheet-preview" className="bg-white shadow-xl mx-auto w-fit">
                 <ProductionSheet order={order} logoUrl={logoAltiv} />
               </div>
             </div>
