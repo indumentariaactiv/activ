@@ -204,7 +204,7 @@ const ClientOrderDetails = () => {
       const titleStr = `${(item.garment_types?.name || '').toUpperCase()} ${item.category && item.category !== 'General' ? `- ${item.category.toUpperCase()}` : ''}`;
       const titleLines = doc.splitTextToSize(titleStr, 220);
       doc.text(titleLines, itemX, localY);
-      localY += titleLines.length * 10 - 2;
+      localY += titleLines.length * 10 + 4;
 
       // Draw item-specific specs inline
       const typeName = (item.garment_types?.name || '').toLowerCase();
@@ -243,14 +243,10 @@ const ClientOrderDetails = () => {
       };
 
       if (isRem) {
-        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
         drawItemSpec('CUELLO', (item.collar_type || '-').toUpperCase());
         drawItemSpec('MANGAS', (item.sleeve_type || '-').toUpperCase());
         if (item.sleeve_color) drawItemSpec('COLOR M.', item.sleeve_color.toUpperCase());
-      } else if (isMusculosa) {
-        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
       } else if (isShort) {
-        drawItemSpec('TELA', (item.fabric_type || '-').toUpperCase());
         const bolsillosVal = item.observations?.includes('Con Bolsillos') || item.notes?.includes('Con Bolsillos') ? 'CON BOLSILLOS' : 'SIN BOLSILLOS';
         drawItemSpec('BOLSILLOS', bolsillosVal);
       } else if (isCamp || isBuzo) {
@@ -258,15 +254,15 @@ const ClientOrderDetails = () => {
       }
 
       if (isRem || isMusculosa || isShort || isCamp || isBuzo) {
-        localY += 10;
+        localY += 14;
       } else {
-        localY += 5;
+        localY += 8;
       }
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.5);
       doc.line(itemX, localY, itemX + 220, localY);
-      localY += 5;
+      localY += 8;
 
       let itemSizes = visibleSizes.filter(size => 
         item.has_personalization
