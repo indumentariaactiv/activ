@@ -11,7 +11,7 @@ import { SmtpClient } from "https://deno.land/x/smtp/mod.ts"
 // Estas variables las guardarás en Supabase de forma segura
 const SMTP_USERNAME = Deno.env.get('SMTP_USERNAME') // Ej: tu-correo@gmail.com
 const SMTP_PASSWORD = Deno.env.get('SMTP_PASSWORD') // Ej: Contraseña de Aplicación de Google
-const SMTP_DESTINATARIO = 'nicofederici@gmail.com' // Correo de la persona que recibe el aviso (Temporal para pruebas)
+const SMTP_DESTINATARIO = 'altivindumentaria@gmail.com' // Correo de la persona que recibe el aviso
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
