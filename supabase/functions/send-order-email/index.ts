@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { writeAll } from "https://deno.land/std@0.168.0/streams/write_all.ts"
+import { readAll } from "https://deno.land/std@0.168.0/streams/read_all.ts"
+
+// Polyfills para compatibilidad con la librería smtp en versiones nuevas de Deno
+if (!(Deno as any).writeAll) (Deno as any).writeAll = writeAll;
+if (!(Deno as any).readAll) (Deno as any).readAll = readAll;
+
 import { SmtpClient } from "https://deno.land/x/smtp/mod.ts"
 
 // Estas variables las guardarás en Supabase de forma segura
 const SMTP_USERNAME = Deno.env.get('SMTP_USERNAME') // Ej: tu-correo@gmail.com
 const SMTP_PASSWORD = Deno.env.get('SMTP_PASSWORD') // Ej: Contraseña de Aplicación de Google
-const SMTP_DESTINATARIO = Deno.env.get('SMTP_DESTINATARIO') // Correo de la persona que recibe el aviso
+const SMTP_DESTINATARIO = 'nicofederici@gmail.com' // Correo de la persona que recibe el aviso (Temporal para pruebas)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

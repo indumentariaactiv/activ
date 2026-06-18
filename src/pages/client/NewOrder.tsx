@@ -276,12 +276,12 @@ const NewOrder = () => {
             .upsert({
               order_id: orderData.id,
               client_id: authUser.id,
-              full_name: fullName,
-              phone,
-              email,
-              shipping_address: shippingAddress,
-              preferred_carrier: preferredCarrier,
-              order_purpose: orderPurpose
+              full_name: fullName || null,
+              phone: phone || null,
+              email: email || null,
+              shipping_address: shippingAddress || null,
+              preferred_carrier: preferredCarrier || null,
+              order_purpose: orderPurpose || null
             }, { onConflict: 'order_id' }),
           15000
         );
@@ -313,12 +313,12 @@ const NewOrder = () => {
             .insert({
               order_id: orderData.id,
               client_id: authUser.id,
-              full_name: fullName,
-              phone,
-              email,
-              shipping_address: shippingAddress,
-              preferred_carrier: preferredCarrier,
-              order_purpose: orderPurpose
+              full_name: fullName || null,
+              phone: phone || null,
+              email: email || null,
+              shipping_address: shippingAddress || null,
+              preferred_carrier: preferredCarrier || null,
+              order_purpose: orderPurpose || null
             }),
           15000
         );
